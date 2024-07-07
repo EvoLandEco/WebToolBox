@@ -6,7 +6,7 @@ A collection of handy and reusable Node.js scripts. Currently, the repository co
 
 1. Clone the repository:
 ```sh
-git clone https://github.com/yourusername/WebToolBox.git
+git clone https://github.com/EvoLandEco/WebToolBox
 cd WebToolBox
 ```
 
