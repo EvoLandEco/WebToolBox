@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced TreeView Example</title>
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="../styles/treeview.css">
+</head>
+
+<body>
+    <p>Example Tree Viewer</p>
+    <div class="container">
+        <button id="toggleAll">Expand All</button>
+        <section id="treeView" class="container"></section>
+    </div>
+    <script src="../treeview.js"></script>
+    <script>
+        /* TreeView */
+        const TreeView = () => {
+            return section(
+                { className: "container" },
+                Folder(
+                    { name: "EvoNN (package root)" },
+                    Folder({ name: "inst" }, Folder({ name: "model" }, File({ name: "weights.pt" }), File({ name: "import.py"}), File({ name: "function.py"})), File({ name: "pkglist.csv" })),
+                    Folder({ name: "R" }, File({ name: "function.R" }), File({ name: "zzz.R" }))
+                ),
+                Folder({name: "Code"}, File({name: "index.html"}), File({name: "style.css"}), File({name: "script.js"}), File({name: "config.json"})),
+                Folder({name: "Images"}, File({name: "img.jpeg"}), File({name: "logo.png"}), File({name: "banner.gif"}), File({name: "icon.svg"})),
+                Folder({name: "Documents"}, File({name: "md.md"}),  File({name: "pdf.pdf"}), File({name: "doc.docx"})),
+                Folder({name: "Books"}, File({name: "epub.epub"}), File({name: "mobi.mobi"}), File({name: "azw3.azw3"})),
+                Folder({name: "Audio"}, File({name: "mp3.mp3"}), File({name: "wav.wav"}), File({name: "ogg.ogg"})),
+                Folder({name: "Video"}, File({name: "mp4.mp4"}), File({name: "avi.avi"}), File({name: "mkv.mkv"}), File({name: "flv.flv"})),
+                Folder({name: "Archive"}, File({name: "zip.zip"}), File({name: "tar.tar"}), File({name: "rar.rar"}), File({name: "7z.7z"})),
+                Folder({name: "Fonts"}, File({name: "ttf.ttf"}), File({name: "otf.otf"}), File({name: "woff.woff"})),
+                Folder({name: "Executable"}, File({name: "exe.exe"}), File({name: "msi.msi"}), File({name: "deb.deb"}), File({name: "rpm.rpm"}, File({name: "sh.sh"}))),
+                Folder({name: "Android"}, File({name: "apk.apk"}), File({name: "aab.aab"}), File({name: "xapk.xapk"}), File({name: "obb.obb"})),
+                Folder({name: "System"}, File({name: "dll.dll"}), File({name: "sys.sys"}), File({name: "ini.ini"}), File({name: "inf.inf"})),
+                Folder({name: "Others"}, File({name: "model.pt"})),
+                Folder({name: "Default"}, File({name: "default.txt"}))
+            );
+        };
+
+        const app = document.querySelector("#treeView");
+        app.appendChild(createElement(TreeView));
+
+        document.getElementById("toggleAll").addEventListener("click", (event) => {
+            const expandAll = event.target.textContent === "Expand All";
+            event.target.textContent = expandAll ? "Collapse All" : "Expand All";
+            
+            document.querySelectorAll(".folder-header").forEach(header => {
+                header.setAttribute("opened", expandAll);
+                const icons = header.querySelectorAll(".material-icons");
+                icons.forEach(icon => {
+                    if (/arrow/i.test(icon.textContent)) {
+                        icon.textContent = expandAll ? openedArrowIcon : closedArrowIcon;
+                    } else {
+                        icon.textContent = expandAll ? openedFolderIcon : closedFolderIcon;
+                    }
+                });
+                const sibling = header.nextElementSibling;
+                if (sibling) {
+                    if (expandAll) {
+                        sibling.classList.remove("hide");
+                    } else {
+                        sibling.classList.add("hide");
+                    }
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>
