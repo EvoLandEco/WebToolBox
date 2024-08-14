@@ -85,8 +85,6 @@ http://localhost:3000/examples/treeview.html
 
 </details>
 
-</details>
-
 ### *csvtable.js* - display a table from csv
 
 <details><summary>Click to see the details</summary>
@@ -98,6 +96,21 @@ Express server is required to run a minimal examplary html file.
 #### Examples
 ```
 http://localhost:3000/examples/csvtable.html
+```
+
+</details>
+
+### *phylovis.html* - a playground for phylogenetic encodings
+
+<details><summary>Click to see the details</summary>
+
+The `phylovis` script provides functions to simulate and visualize phylogenies under the Yule model and display corresponding encodings of the underlying graph representations. It supports interactive highlighting on-hover to easily trace connections between nodes/edges and their entries in the encodings. Graph visualization is based on `vis.js`.
+
+Express server is required to run a minimal examplary html file. 
+
+#### Examples
+```
+http://localhost:3000/examples/phylovis.html
 ```
 
 </details>
