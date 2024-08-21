@@ -44,13 +44,19 @@ To serve files from the public directory on port 3000:
 node server.js --path ./public --port 3000
 ```
 
+#### Preview
+
+![Console Output](/preview/server.png)
+
 </details>
+
+---
 
 ### *pdfgen.js* - convert html to pdf
 
 <details><summary>Click to see the details</summary>
 
-The `pdfgen` script generates a PDF from a specified HTML URL. It provides various customization options including DPI, scale, page size, margins, and background settings.
+The `pdfgen` script generates a PDF from a specified HTML URL using headless browser. It provides various customization options including DPI, scale, page size, margins, and background settings.
 
 #### Usage
 
@@ -68,7 +74,13 @@ With custom page size and margins:
 node pdfgen.js --url http://localhost:3000/example.html --output c:/test/test.pdf --width 8.5 --height 11 --top 10 --right 10 --bottom 10 --left 10
 ```
 
+#### Preview
+
+![Console Output](/preview/pdfgen.png)
+
 </details>
+
+---
 
 ### *treeview.js* - better directory tree viewer
 
@@ -83,7 +95,13 @@ Express server is required to run a minimal examplary html file. `/styles/treevi
 http://localhost:3000/examples/treeview.html
 ```
 
+#### Preview
+
+![Preview](/preview/treeview.png)
+
 </details>
+
+---
 
 ### *csvtable.js* - display a table from csv
 
@@ -98,7 +116,13 @@ Express server is required to run a minimal examplary html file.
 http://localhost:3000/examples/csvtable.html
 ```
 
+#### Preview
+
+![Preview](/preview/csvtable.png)
+
 </details>
+
+---
 
 ### *phylovis.html* - a playground for phylogenetic encodings
 
@@ -113,4 +137,31 @@ Express server is required to run a minimal examplary html file.
 http://localhost:3000/examples/phylovis.html
 ```
 
+#### Preview
+
+![Preview](/preview/phylovis.png)
+
 </details>
+
+---
+
+### *heatwave.js* - interactive climate data visualizer
+
+<details><summary>Click to see the details</summary>
+
+The `heatwave` script is empowered by `d3.js`. One step further from the static [Radial area chart](https://observablehq.com/@d3/radial-area-chart/2?intent=fork), `heatwave` redefines interactive visualization of periodic time series data.
+
+Express server is required to run a minimal examplary html file. 
+
+#### Examples
+```
+http://localhost:3000/examples/heatwave.html
+```
+
+#### Preview
+
+![alt text](/preview/heatwave.png)
+
+</details>
+
+---

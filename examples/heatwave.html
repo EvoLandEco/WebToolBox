@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3 Chart</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <link href="https://use.fontawesome.com/releases/v6.4.2/css/all.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="../styles/heatwave.css">
+</head>
+
+<body>
+    <div class="main-container">
+        <!-- Left Column: Figure -->
+        <div class="figure" id="figure">
+            <!-- Chart will be rendered here -->
+                <div class="circle">
+                  <div class="dot"></div>
+                  <div class="dot-outer"></div>
+                </div>
+        </div>
+        <div class="controls-container">
+            <div id="slider-container" class="slider-wrapper">
+                <label for="year-slider" class="slider-label">Year:</label>
+                <input type="range" id="year-slider" min="1999" max="2018" value="2000" step="1">
+                <span id="year-value">2000</span>
+            </div>
+
+            <div id="metric-container" class="slider-wrapper">
+                <label for="metric-slider" class="slider-label">Metric:</label>
+                <input type="range" id="metric-slider" min="0" max="2" value="1" step="1">
+                <span id="metric-value">Average</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="../heatwave.js"> </script>
+</body>
+
+</html>
