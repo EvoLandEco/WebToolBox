@@ -149,7 +149,7 @@ http://localhost:3000/examples/phylovis.html
 
 <details><summary>Click to see the details</summary>
 
-The `heatwave` script is empowered by `d3.js`. One step further from the static [Radial area chart](https://observablehq.com/@d3/radial-area-chart/2?intent=fork), `heatwave` redefines interactive visualization of periodic time series data.
+The `heatwave` script is empowered by `d3.js`. One step further from the static [Radial area chart](https://observablehq.com/@d3/radial-area-chart/2?intent=fork), `heatwave` illustrates an interactive way to visualize periodic time series data.
 
 Express server is required to run a minimal examplary html file. 
 
