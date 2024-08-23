@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phylogeny Browser</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script> <!-- Importing d3.js -->
+    <script src="../newickvis.js" defer></script> <!-- Link to the external JavaScript file -->
+    <link rel="stylesheet" href="../styles/newickvis.css">
+</head>
+
+<body>
+
+    <!-- Main Container with Legend, Chart, and Controls -->
+    <div id="newickvis-container">
+        <div id="newickvis-legend">
+            <!-- Legend will be dynamically populated here -->
+        </div>
+        <div id="newickvis-chart">
+            <!-- Chart will be rendered here -->
+        </div>
+        <div id="newickvis-controls">
+            <!-- Toggle switch for branch length -->
+            <div class="newickvis-toggle-container">
+                <label class="newickvis-switch">
+                    <input type="checkbox" id="newickvis-showLengthCheckbox">
+                    <span class="newickvis-slider"></span>
+                </label>
+                <label class="newickvis-toggle-label">Show branch length</label>
+            </div>
+
+            <!-- Second toggle switch for legend visibility -->
+            <div class="newickvis-toggle-container">
+                <label class="newickvis-switch">
+                    <input type="checkbox" id="newickvis-toggleLegendCheckbox" checked>
+                    <span class="newickvis-slider"></span>
+                </label>
+                <label class="newickvis-toggle-label">Show Legend</label>
+            </div>
+
+            <!-- Custom styled file input -->
+            <div class="newickvis-file-input-wrapper">
+                <button>Select File</button>
+                <input type="file" id="newickvis-fileInput">
+            </div>
+
+            <div id="newickvis-subclade-controls"></div> <!-- Div to hold subclade checkboxes -->
+        </div>
+    </div>
+</body>
+
+</html>

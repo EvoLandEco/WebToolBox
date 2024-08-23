@@ -1,0 +1,155 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    overflow-x: hidden;
+    height: 100vh;
+}
+
+/* Main container with legend, chart, and controls */
+#newickvis-container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+}
+
+/* Legend area */
+#newickvis-legend {
+    flex-basis: 200px; /* Set a base width */
+    max-width: 250px; /* Ensure it doesn't grow too large */
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 100%;
+    background-color: #f8f9fa;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    transition: all 0.5s ease; /* Transition for hiding and showing */
+}
+
+/* Chart area */
+#newickvis-chart {
+    flex: 8;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.5s ease; /* Transition for resizing */
+}
+
+/* Hidden legend state */
+#newickvis-legend.hidden {
+    flex: 0;
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+#newickvis-chart.expanded {
+    flex: 10;
+}
+
+/* Controls area */
+#newickvis-controls {
+    flex-basis: 200px; /* Set a base width */
+    max-width: 250px; /* Ensure it doesn't grow too large */
+    min-width: 150px; /* Ensure it doesn't shrink too small */
+    padding: 20px;
+    background-color: #f0f0f0;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+
+/* Toggle switch container - using Flexbox to align label and switch horizontally */
+.newickvis-toggle-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.newickvis-toggle-label {
+    margin-left: 10px; /* Space between switch and label */
+}
+
+/* Toggle Switch */
+.newickvis-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 25px;
+}
+
+.newickvis-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.newickvis-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.newickvis-slider:before {
+    position: absolute;
+    content: "";
+    height: 19px;
+    width: 19px;
+    left: 4px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+newickvis-input:checked + .slider {
+    background-color: #007bff;
+}
+
+newickvis-input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+/* Custom file input */
+.newickvis-file-input-wrapper {
+    position: relative;
+    width: 200px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.newickvis-file-input-wrapper input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.newickvis-file-input-wrapper button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s ease;
+}
+
+.newickvis-file-input-wrapper button:hover {
+    background-color: #0056b3;
+}
+
+.label--active {
+    font-weight: bold;
+    fill: red; /* You can change the color as desired */
+}
