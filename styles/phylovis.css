@@ -1,0 +1,159 @@
+#phylovis-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+.row {
+    display: flex;
+    width: 100%;
+    margin-bottom: 30px;
+    border: 2px dashed #ccc; /* Dashed border with light gray color */
+    border-radius: 10px; /* Rounded corners */
+    min-height: 100px;
+}
+.row-button {
+    display: flex;
+    width: 100%;
+    margin-bottom: 20px;
+    justify-content: left;
+}
+.row-title {
+    display: flex;
+    width: 100%;
+    margin-bottom: 10px;
+}
+#mynetwork-legend {
+    flex: 1; /* 1/11 of the total width */
+    height: 400px;
+    margin-right: 0px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+
+}.legend-item {
+     display: flex;
+     align-items: center;
+     margin-bottom: 10px;
+ }
+.legend-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 2px solid; /* Add a border with a slightly darker color */
+}
+.root-circle {
+    background-color: #80b3ff; /* Light Blue */
+    border-color: #6699cc; /* Slightly darker blue */
+}
+.internal-circle {
+    background-color: #ffd699; /* Light Orange */
+    border-color: #e6b366; /* Slightly darker orange */
+}
+.tip-circle {
+    background-color: #b3ff99; /* Light Lime Green */
+    border-color: #99cc80; /* Slightly darker lime green */
+}
+#mynetwork {
+    flex: 10; /* 10/11 of the total width */
+    height: 400px;
+}
+#adjacency-list {
+    flex: 1; /* Equal width for adjacency-list and node-features */
+    font-family: monospace;
+    font-size: 18px;
+    white-space: nowrap;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+#node-features {
+    flex: 1; /* Equal width for adjacency-list and node-features */
+    font-family: monospace;
+    font-size: 17px;
+    white-space: nowrap;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+#adjacency-list-title {
+    color: #767776;
+    flex: 1;
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+    font-family: "Arial Math", Arial, sans-serif; /* Change the font to Arial Math */
+    background-color: #fbf5f7;
+    padding: 10px;
+    margin-left: 10px;
+    margin-right: 10px;
+    border-radius: 10px; /* Rounded corners */
+}
+#node-features-title {
+    color: #767776;
+    flex: 1;
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+    font-family: "Arial Math", Arial, sans-serif; /* Change the font to Arial Math */
+    background-color: #fbf5f7;
+    padding: 10px;
+    margin-left: 10px;
+    margin-right: 10px;
+    border-radius: 10px; /* Rounded corners */
+}
+.highlight {
+    background-color: yellow;
+    /*border: 1px dashed #e35142; !* Dashed border with light red color *!*/
+    border-radius: 5px; /* Rounded corners */
+}
+.highlight-node-feature {
+    background-color: lightblue;
+    /*border: 1px dashed #ccc; !* Dashed border with light gray color *!*/
+    border-radius: 5px; /* Rounded corners */
+}
+#node-features .highlight-node-feature {
+    background-color: lightblue;
+    /*border: 1px dashed #ccc; !* Dashed border with light gray color *!*/
+    border-radius: 5px; /* Rounded corners */
+}
+.label-highlight {
+    background-color: lightblue;
+    /*border: 1px dashed #ccc; !* Dashed border with light gray color *!*/
+    border-radius: 5px; /* Rounded corners */
+}
+.row-container {
+    display: flex;
+    align-items: center;
+    padding: 1px 0;
+}
+.row-container:hover {
+    background-color: yellow;
+}
+.edge-label, .node-label {
+    min-width: 50px;
+    text-align: right;
+    padding-right: 10px;
+}
+.colon {
+    padding-right: 10px;
+}
+.node-container {
+    display: inline-block;
+    text-align: center;
+    margin-right: 5px;
+}
+.brackets {
+    margin: 0 5px;
+}
