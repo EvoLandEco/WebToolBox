@@ -285,7 +285,7 @@ async function newickvisLoadData(defaultFile = true) {
     let newickText;
 
     if (defaultFile) {
-        const response = await fetch('../files/example_phylo.txt'); // Update the file path as necessary
+        const response = await fetch('../files/example_phylo.txt');
         newickText = await response.text();
     } else {
         const fileInput = document.getElementById('newickvis-fileInput');
