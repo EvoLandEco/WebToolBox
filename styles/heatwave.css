@@ -128,8 +128,6 @@ svg {
     top: 50%;
     left: 50%;
     border-radius: 50%;
-    width: min(27.5vw, 27.5vh);
-    height: min(27.5vw, 27.5vh);
     transform: translate3d(-50%, -50%, 0);
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
 }
