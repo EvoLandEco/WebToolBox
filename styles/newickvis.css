@@ -107,11 +107,11 @@ body {
     border-radius: 50%;
 }
 
-newickvis-input:checked + .slider {
+.newickvis-switch input:checked + .newickvis-slider {
     background-color: #007bff;
 }
 
-newickvis-input:checked + .slider:before {
+.newickvis-switch input:checked + .newickvis-slider:before {
     transform: translateX(24px);
 }
 
