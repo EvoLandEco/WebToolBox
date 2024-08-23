@@ -698,10 +698,10 @@ function updateTempRotateDegree(tempRotateDegree) {
         maxAvg
     );
 
-    toLighterThemeTone = (pickedThemeTone) =>
+    const toLighterThemeTone = (pickedThemeTone) =>
         d3.hsl(pickedThemeTone).brighter(1.4).toString();
 
-    toDarkerThemeTone = (pickedThemeTone) =>
+    const toDarkerThemeTone = (pickedThemeTone) =>
         d3.hsl(pickedThemeTone).darker(1.4).toString();
 
     lighterThemeTone = toLighterThemeTone(pickedThemeTone);
@@ -767,6 +767,12 @@ function updateTempRotateDegree(tempRotateDegree) {
 
 var count = 0;
 
+/**
+ * Generates a unique identifier based on the given name. Ported from DOM standard library.
+ * 
+ * @param {string} name - The name to be included in the identifier.
+ * @returns {Id} The generated unique identifier.
+ */
 function uid(name) {
     return new Id("O-" + (name == null ? "" : name + "-") + ++count);
 }
@@ -794,53 +800,59 @@ yearSlider.addEventListener('input', function () {
     updateTempPath(tempYear, metric);  // Update temperature line for the selected year
 });
 
-// // Event listener for the rotation slider
-// const rotationSlider = document.getElementById('rotation-slider');
-// const rotationValue = document.getElementById('rotation-value');
-
-// rotationSlider.addEventListener('input', function () {
-//     tempRotateDegree = +rotationSlider.value;
-//     rotationValue.textContent = tempRotateDegree;
-
-//     updateTempRotateDegree(tempRotateDegree);
-// });
 (function () {
-    $(document).ready(function () {
-        var is_dragging;
-        is_dragging = false;
+    document.addEventListener("DOMContentLoaded", function () {
+        var is_dragging = false;
 
         function degreeChangeCallback(angle) {
             tempRotateDegree = 360 - angle;
             updateTempRotateDegree(tempRotateDegree);
         }
 
-        $(document).on("mousedown touchstart", ".dot", function (e) {
+        document.querySelector(".dot").addEventListener("mousedown", function (e) {
             is_dragging = true;
         });
 
-        $(document).on("mouseup touchend", function (e) {
+        document.querySelector(".dot").addEventListener("touchstart", function (e) {
+            is_dragging = true;
+        });
+
+        document.addEventListener("mouseup", function (e) {
             is_dragging = false;
         });
 
-        $(window).on("mousemove touchmove", function (e) {
-            var angle, center_x, center_y, circle, delta_x, delta_y, pos_x, pos_y, touch;
+        document.addEventListener("touchend", function (e) {
+            is_dragging = false;
+        });
 
+        window.addEventListener("mousemove", function (e) {
+            handleMove(e);
+        });
+
+        window.addEventListener("touchmove", function (e) {
+            handleMove(e);
+        });
+
+        function handleMove(e) {
             if (is_dragging) {
-                circle = $(".circle");
-                touch = void 0;
+                const circle = document.querySelector(".circle");
+                let touch = undefined;
 
-                if (e.originalEvent.touches) {
-                    touch = e.originalEvent.touches[0];
+                if (e.touches) {
+                    touch = e.touches[0]; // Get touch event for mobile
                 }
 
-                center_x = ($(circle).outerWidth() / 2) + $(circle).offset().left;
-                center_y = ($(circle).outerHeight() / 2) + $(circle).offset().top;
-                pos_x = e.pageX || touch.pageX;
-                pos_y = e.pageY || touch.pageY;
-                delta_y = center_y - pos_y;
-                delta_x = center_x - pos_x;
-                angle = Math.atan2(delta_y, delta_x) * (180 / Math.PI);
-                angle -= 90;
+                const rect = circle.getBoundingClientRect();
+                const center_x = rect.left + (rect.width / 2);
+                const center_y = rect.top + (rect.height / 2);
+
+                const pos_x = e.pageX || touch.pageX;
+                const pos_y = e.pageY || touch.pageY;
+
+                const delta_y = center_y - pos_y;
+                const delta_x = center_x - pos_x;
+                let angle = Math.atan2(delta_y, delta_x) * (180 / Math.PI);
+                angle -= 90; // Offset by 90 degrees
 
                 if (angle - 90 < 0) {
                     angle = 360 + angle;
@@ -848,15 +860,16 @@ yearSlider.addEventListener('input', function () {
 
                 angle = Math.round(angle);
 
-                $(".dot").css("transform", "rotate(" + angle + "deg)");
-                $(".debug").html(angle + "deg");
+                // Apply rotation to the dot
+                document.querySelector(".dot").style.transform = `rotate(${angle}deg)`;
 
                 // Call the callback function with the current angle
-                degreeChangeCallback(angle - 90);
+                degreeChangeCallback(angle - 90); // Pass the adjusted angle
             }
-        });
+        }
     });
-}).call(this);
+})();
+
 
 // Event listener for the metric select
 const metricSelect = document.getElementById('metric-slider');
@@ -902,7 +915,13 @@ function getTempPerYear(tempRaw, tempYear) {
             min: d.TMIN ? parseFloat(d.TMIN) : NaN
         }));
 
-    // Function to interpolate 0s with the mean of left and right non-zero values
+    /**
+     * Interpolates zeros/missing in the given data array for the specified key.
+     * 
+     * @param {Array} data - The data array to interpolate zeros in.
+     * @param {string} key - The key to interpolate zeros for.
+     * @returns {void}
+     */
     function interpolateZeros(data, key) {
         for (let i = 0; i < data.length; i++) {
             if (data[i][key] === 0 || isNaN(data[i][key])) {
@@ -932,6 +951,9 @@ function getTempPerYear(tempRaw, tempYear) {
                     data[i][key] = leftValue;
                 } else if (!isNaN(rightValue)) {
                     data[i][key] = rightValue;
+                } else {
+                    // If no left or right values are found, set the value to 0
+                    data[i][key] = 0;
                 }
             }
         }
@@ -944,3 +966,50 @@ function getTempPerYear(tempRaw, tempYear) {
 
     return tempPerYear;
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    /**
+     * Resizes the radial slider based on the dimensions of the figure element.
+     * @function resizeRadialSlider
+     * @returns {void}
+     */
+    function resizeRadialSlider() {
+        const figure = document.getElementById('figure');
+        
+        if (!figure) return; // Ensure the figure element exists
+
+        const figureWidth = figure.clientWidth;
+        const figureHeight = figure.clientHeight;
+
+        const minDimension = Math.min(figureWidth, figureHeight);
+
+        const circleSize = minDimension * 0.35; // Hard-coded size ratio
+
+        // Select the circle, dot, and dot-outer elements
+        const circle = document.querySelector('.circle');
+
+        if (circle) {
+            // Set sizes for the circle and dots
+            circle.style.width = `${circleSize}px`;
+            circle.style.height = `${circleSize}px`;
+        }
+    }
+
+    // Initialize ResizeObserver to watch for changes in the figure element's size
+    const figure = document.getElementById('figure');
+
+    if (figure) {
+        const resizeObserver = new ResizeObserver(() => {
+            resizeRadialSlider(); // Call resizeRadialSlider when the figure's size changes
+        });
+
+        // Start observing the figure for changes in size
+        resizeObserver.observe(figure);
+    }
+
+    // Call resizeRadialSlider on page load
+    resizeRadialSlider();
+
+    // Keep the event listener for window resize to ensure the circles are resized
+    window.addEventListener('resize', resizeRadialSlider);
+});
