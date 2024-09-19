@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Dynamic Force-Directed Graph with L Table</title>
+    <title>Sub-species diversification and tree coarsening</title>
     <link rel="stylesheet" href="/styles/evonet.css">
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
@@ -17,7 +17,7 @@
 </head>
 <body>
 
-    <h1>Dynamic Force-Directed Graph</h1>
+    <h1>Sub-species diversification and tree coarsening</h1>
 
     <div id="controls">
         <div class="slider-column">
@@ -42,20 +42,20 @@
             <label for="maxSteps">Max Simulation Steps:</label>
             <input type="number" id="maxSteps" value="50" min="1" max="60" step="1">
             
-            <label for="mstep">Coarsen Level:</label>
-            <input type="number" id="mstep" value="0" min="0" max="9" step="1">
-            
-            <label for="traitDimensions">Trait Dimensions (1-6):</label>
-            <input type="number" id="traitDimensions" value="2" min="1" max="6" step="1">
-        </div>
-    
-        <div class="model-column">
             <div>
                 <label for="traitModel">Trait Model:</label>
                 <select id="traitModel">
                     <option value="brownian" selected>Brownian Motion</option>
                 </select>
             </div>
+            
+            <label for="traitDimensions">Trait Dimensions:</label>
+            <input type="number" id="traitDimensions" value="2" min="1" max="10" step="1">
+        </div>
+    
+        <div class="model-column">
+            <label for="mstep">Coarsen Level:</label>
+            <input type="number" id="mstep" value="0" min="0" max="6" step="1">
             
             <div>
                 <label for="showBranchLengths">Show Branch Lengths<input type="checkbox" id="showBranchLengths"></label>

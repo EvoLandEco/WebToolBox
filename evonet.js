@@ -19,6 +19,34 @@ let maxSteps = parseInt(document.getElementById('maxSteps').value);
 let simulationInterval = null; // To store the interval ID
 let isRunning = false;
 
+// Add global variables to store data
+let lastLTable = null;
+let lastNodeAccumulatedMutations = null;
+let lastNewickChart = null;
+let lastTraitChart = null;
+let lastNodeTraits = null;
+let lastTraitModel = null;
+let lastTraitDimension = null;
+
+// Declare global data variables for coarsened graph
+let lastCoarsenedNodes = null;
+let lastCoarsenedLinks = null;
+
+// Event listener for the sliders controlling rates
+const birthRateSlider = document.getElementById('birthRate');
+const mutateRateSlider = document.getElementById('mutateRate');
+const deathRateSlider = document.getElementById('deathRate');
+
+const birthRateValue = document.getElementById('birthRateValue');
+const mutateRateValue = document.getElementById('mutateRateValue');
+const deathRateValue = document.getElementById('deathRateValue');
+
+let birthRate = parseFloat(birthRateSlider.value);
+let mutateRate = parseFloat(mutateRateSlider.value);
+let deathRate = parseFloat(deathRateSlider.value);
+
+let resizeTimeout;
+
 // Select the graph container and append the SVG to it.
 const svg = d3.select("#graph-container").append("svg")
     .attr("width", width)
@@ -71,7 +99,18 @@ function updateGraph() {
         .attr("text-anchor", "middle")
         .text(d => d.id)
         .style("fill", "white") // Adjust text color if needed
-        .style("font-size", "12px"); // Increased font size
+        .style("font-size", "12px") // Increased font size
+        // Bind hover events to the text element
+        .on('mouseover', function (event, d) {
+            // Trigger the same hover effect on the circle
+            d3.select(this.parentNode).select('circle')
+                .dispatch('mouseover');
+        })
+        .on('mouseout', function (event, d) {
+            // Trigger the same unhover effect on the circle
+            d3.select(this.parentNode).select('circle')
+                .dispatch('mouseout');
+        });
 
     // Append titles to the 'g' elements
     nodeEnter.append("title")
@@ -82,7 +121,9 @@ function updateGraph() {
     // Update the fill color based on the node's active and mutated status.
     node.select("circle")
         .attr("fill", d => d.active ? (d.mutated ? "red" : "black") : "gray")
-        .attr("stroke", d => d.mutated ? "pink" : "white");
+        .attr("stroke", d => d.mutated ? "pink" : "white")
+        .on('mouseover', fullGraphMouseovered(true))
+        .on('mouseout', fullGraphMouseovered(false));
 
     // Update and restart the simulation.
     simulation.nodes(nodes);
@@ -101,6 +142,19 @@ simulation.on("tick", () => {
     // Update the position of the node groups
     node.attr("transform", d => `translate(${d.x},${d.y})`);
 });
+
+function fullGraphMouseovered(active) {
+    return function (event, d) {
+        highlightNewickTreeNode(d, active); // Highlight or unhighlight the corresponding Newick tree node
+        highlightTraitTreeNode(d, active); // Highlight or unhighlight the corresponding trait-based phylogeny node
+        highlightCoarsenedGraphNode(d.id, active); // Highlight or unhighlight the corresponding full graph node
+        d3.select(this)
+            .attr('stroke', active ? '#ff0' : d => d.mutated ? 'pink' : 'white') // Highlight or reset stroke
+            .attr('stroke-width', active ? 4 : 1.5) // Increase or reset stroke width
+            .attr('r', active ? 12 : 10); // Increase or reset node size
+    }
+}
+
 
 // Random event simulation function.
 function simulateStep() {
@@ -149,20 +203,19 @@ function simulateStep() {
     lastNodeAccumulatedMutations = nodeAccumulatedMutations; // Store for later use
     lastCoarsenedNodes = coarsenedNodes;
     lastCoarsenedLinks = coarsenedLinks;
-
-    // Build trait table
-    let traitModel = document.getElementById('traitModel').value;
-    let traitDimension = parseInt(document.getElementById('traitDimensions').value) || 2;
-    let nodeTraits = buildTraitTable(lastNodeAccumulatedMutations, traitModel);
+    lastNodeTraits = buildTraitTable(lastNodeAccumulatedMutations, lastTraitModel);
 
     // First plot the trait data
-    plotTraits(nodeTraits, traitDimension);
+    // plotTraits(lastNodeTraits, lastTraitDimension);
 
     // Now plot current data as newick tree
     plotCurrentData();
 
+    // Plot the trait-based phylogeny
+    plotCurrentTraitData();
+
     // And plot the coarsened graph
-    plotCoarsenedGraph(lastCoarsenedNodes, lastCoarsenedLinks);
+    plotCoarsenedGraph();
 }
 
 // Randomly selects an active node (to ensure extinction can happen on active nodes only).
@@ -220,6 +273,12 @@ function startResumeSimulation() {
     if (isRunning) return;
 
     maxSteps = parseInt(document.getElementById('maxSteps').value);
+    lastTraitModel = document.getElementById('traitModel').value;
+    lastTraitDimension = parseInt(document.getElementById('traitDimensions').value) || 2;
+
+    // Dynamically compute the interval based on the sum of rates
+    let sumRates = birthRate + mutateRate + deathRate;
+    dynamicInterval = 1000 / sumRates; 
 
     simulationInterval = d3.interval(() => {
         if (simulationStep >= maxSteps) {
@@ -228,10 +287,45 @@ function startResumeSimulation() {
         }
         simulateStep();
         simulationStep++;
-    }, 1000); // Adjust the interval as needed.
+    }, dynamicInterval);
 
     isRunning = true;
     toggleButtons();
+    lockMaxStepsInput(true);
+    lockTraitControls(true);
+}
+
+// Lock the max steps input field during simulation.
+function lockMaxStepsInput(locked) {
+    document.getElementById('maxSteps').disabled = locked;
+}
+
+function lockTraitControls(locked) {
+    document.getElementById('traitModel').disabled = locked;
+    document.getElementById('traitDimensions').disabled = locked;
+}
+
+function updateRates() {
+    let sumRates = birthRate + mutateRate + deathRate;
+    dynamicInterval = 1000 / sumRates; // Update dynamic interval
+    restartSimulationInterval();
+}
+
+function restartSimulationInterval() {
+    if (isRunning && simulationInterval) {
+        // Stop the current interval
+        simulationInterval.stop();
+
+        // Start a new interval with the updated dynamicInterval
+        simulationInterval = d3.interval(() => {
+            if (simulationStep >= maxSteps) {
+                pauseSimulation();
+                return;
+            }
+            simulateStep();
+            simulationStep++;
+        }, dynamicInterval);
+    }
 }
 
 // Stop the simulation (pause).
@@ -252,6 +346,9 @@ function resetSimulation() {
     activeNodes = [nodes[0]];
     simulationStep = 0;
 
+    // Clear historical trait data
+    previousNodeTraits = {};
+
     updateGraph();
     pauseSimulation(); // Ensure it's in a paused state.
     toggleButtons(true); // Set to initial state with "Start" enabled.
@@ -264,6 +361,10 @@ function resetSimulation() {
 
     // Clear the Newick visualization
     document.getElementById('plot-container').innerHTML = '';
+
+    // Resurrect the trait controls
+    lockTraitControls(false);
+    lockMaxStepsInput(false);
 }
 
 // Toggle button states based on the simulation status.
@@ -417,7 +518,7 @@ function buildLTable(mstep) {
 let previousNodeTraits = {};
 
 function buildTraitTable(nodeAccumulatedMutations, model) {
-    let traitDimension = parseInt(document.getElementById('traitDimensions').value) || 2;
+    let traitDimension = lastTraitDimension || 2;
 
     // Ensure traitDimension is between 1 and 6
     traitDimension = Math.min(Math.max(traitDimension, 1), 6);
@@ -440,10 +541,10 @@ function buildTraitTable(nodeAccumulatedMutations, model) {
                 for (let i = 0; i < steps; i++) {
                     // Randomly select a dimension
                     let dim = Math.floor(Math.random() * traitDimension);
-                    
+
                     // Randomly decide to increment or decrement, with a small variance on top of 1
                     let delta = (Math.random() < 0.5 ? -1 : 1) * (1 + (Math.random() * variance * 2 - variance));
-                    
+
                     // Update the coordinate
                     coordinate[dim] += delta;
                 }
@@ -461,6 +562,34 @@ function buildTraitTable(nodeAccumulatedMutations, model) {
 
     return nodeTraits;
 }
+
+function filterTraitTable(nodeTraits, lTable, pruneExtinct) {
+    // Create a set of child IDs from the L table (these are the recorded nodes)
+    let recordedNodeIds = new Set();
+
+    // Loop over the L table rows
+    lTable.forEach(row => {
+        // If pruning extinct nodes, only include nodes with extinctTime == -1
+        if (pruneExtinct) {
+            if (row.extinctTime === -1) {
+                recordedNodeIds.add(row.childId);
+            }
+        } else {
+            recordedNodeIds.add(row.childId);
+        }
+    });
+
+    // Filter the trait table to include only nodes that are in the recordedNodeIds set
+    let filteredTraits = {};
+    for (let nodeId in nodeTraits) {
+        if (recordedNodeIds.has(parseInt(nodeId))) {
+            filteredTraits[nodeId] = nodeTraits[nodeId];
+        }
+    }
+
+    return filteredTraits;
+}
+
 
 // Function to display the L table using DataTables
 function displayLTable(lTable) {
@@ -544,7 +673,7 @@ function LTableToNewick(LTable, age, pruneExtinct) {
             eventTime: row.eventTime,
             parentId: row.parentId,
             childId: row.childId,
-            label: 't' + Math.abs(row.childId),
+            label: Math.abs(row.childId).toString(), // Remove "t" prefix
             tend: row.tend
         };
     });
@@ -596,7 +725,7 @@ function LTableToNewick(LTable, age, pruneExtinct) {
 
         // Collect labels of extinct species
         let extinctLabels = LTable.filter(row => row.extinctTime !== -1)
-            .map(row => 't' + Math.abs(row.childId));
+            .map(row => Math.abs(row.childId).toString()); // No "t" prefix
 
         // Remove extinct tips from the tree
         treeData = pruneTree(treeData, extinctLabels);
@@ -661,8 +790,6 @@ function serializeNewick(node) {
     return result;
 }
 
-
-
 function parseNewick(a) {
     for (var e = [], r = {}, s = a.split(/\s*(;|\(|\)|,|:)\s*/), t = 0; t < s.length; t++) {
         var n = s[t];
@@ -706,6 +833,101 @@ function newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxL
 
     const svg = d3.create("svg")
         .attr("id", "newickvis-chart")
+        .attr("viewBox", [-outerRadius, -outerRadius, outerRadius * 2, outerRadius * 2])
+        .attr("width", width)
+        .attr("font-family", "sans-serif")
+        .attr("font-size", 40);
+
+    svg.append("style").text(`
+        .link--active {
+            stroke: #000 !important;
+            stroke-width: 1.5px;
+            filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
+        }
+        .link-extension--active {
+            stroke-opacity: .6;
+            stroke-width: 1.5px;
+            stroke-dasharray: 3,2;
+        }
+        .label--active {
+            font-weight: bold;
+        }`
+    );
+
+    const linkExtension = svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#000")
+        .attr("stroke-opacity", 0.25)
+        .selectAll("path")
+        .data(root.links().filter(d => !d.target.children))
+        .join("path")
+        .each(function (d) { d.target.linkExtensionNode = this; })
+        .attr("d", linkExtensionConstant);
+
+    const link = svg.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#000")
+        .selectAll("path")
+        .data(root.links())
+        .join("path")
+        .each(function (d) { d.target.linkNode = this; })
+        .attr("d", linkConstant)
+        .attr("stroke", d => d.target.color);
+
+    const node = svg.append("g")
+        .selectAll("circle")
+        .data(root.descendants())
+        .join("circle")
+        .attr("transform", d => `rotate(${d.x - 90}) translate(${d.y},0)`)
+        .attr("r", d => d === root ? 14 : d.children ? 0 : 18)
+        .attr("fill", d => d === root ? "#ff0000" : d.children ? "#007bff" : "#00ff00")
+        .attr("stroke", "#000")
+        .attr("stroke-width", 1.5)
+        .on("mouseover", newickvisMouseovered(true))
+        .on("mouseout", newickvisMouseovered(false));
+
+    svg.append("g")
+        .selectAll("text")
+        .data(root.leaves())
+        .join("text")
+        .attr("dy", ".31em")
+        .attr("transform", d => `rotate(${d.x - 90}) translate(${innerRadius + 30},0)${d.x < 180 ? "" : " rotate(180)"}`)
+        .attr("text-anchor", d => d.x < 180 ? "start" : "end")
+        .text(d => d.data.name.replace(/_/g, " "))
+        .on("mouseover", newickvisMouseovered(true))
+        .on("mouseout", newickvisMouseovered(false));
+
+    function newickvisUpdate(checked) {
+        const t = d3.transition().duration(750);
+        linkExtension.transition(t).attr("d", checked ? linkExtensionVariable : linkExtensionConstant);
+        link.transition(t).attr("d", checked ? linkVariable : linkConstant);
+    }
+
+    function newickvisMouseovered(active) {
+        return function (event, d) {
+            highlightFullGraphNode(d.data.name, active); // Highlight corresponding node in the graph
+            highlightCoarsenedGraphNode(d.data.name, active); // Highlight corresponding node in the coarsened graph
+            highlightTraitTreeNode(d.data.name, active); // Highlight corresponding node in the trait-based phylogeny
+            d3.select(this).classed("label--active", active);
+            d3.select(d.linkExtensionNode).classed("link-extension--active", active).raise();
+            do d3.select(d.linkNode).classed("link--active", active).raise();
+            while (d = d.parent);
+        };
+    }
+
+    return Object.assign(svg.node(), { newickvisUpdate });
+}
+
+function traitvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLength, outerRadius, width, linkExtensionConstant, linkConstant, linkExtensionVariable, linkVariable) {
+    const root = d3.hierarchy(data, d => d.branchset)
+        .sum(d => d.branchset ? 0 : 1)
+        .sort((a, b) => (a.value - b.value) || d3.ascending(a.data.length, b.data.length));
+
+    cluster(root);
+    setRadius(root, root.data.length = 0, innerRadius / maxLength(root));
+
+    const svg = d3.create("svg")
+        .attr("id", "traitvis-chart")
         .attr("viewBox", [-outerRadius, -outerRadius, outerRadius * 2, outerRadius * 2]) // Adjust to fit chart within the container
         .attr("width", width) // Ensure SVG scales to fit the full container width
         .attr("font-family", "sans-serif")
@@ -747,25 +969,40 @@ function newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxL
         .attr("d", linkConstant)
         .attr("stroke", d => d.target.color);
 
+    const node = svg.append("g")
+        .selectAll("circle")
+        .data(root.descendants())
+        .join("circle")
+        .attr("transform", d => `rotate(${d.x - 90}) translate(${d.y},0)`)
+        .attr("r", d => d === root ? 14 : d.children ? 0 : 18)
+        .attr("fill", d => d === root ? "#ff0000" : d.children ? "#007bff" : "#00ff00")
+        .attr("stroke", "#000")
+        .attr("stroke-width", 1.5)
+        .on("mouseover", traitvisMouseovered(true))
+        .on("mouseout", traitvisMouseovered(false));
+
     svg.append("g")
         .selectAll("text")
         .data(root.leaves())
         .join("text")
         .attr("dy", ".31em")
-        .attr("transform", d => `rotate(${d.x - 90}) translate(${innerRadius + 4},0)${d.x < 180 ? "" : " rotate(180)"}`)
+        .attr("transform", d => `rotate(${d.x - 90}) translate(${innerRadius + 30},0)${d.x < 180 ? "" : " rotate(180)"}`)
         .attr("text-anchor", d => d.x < 180 ? "start" : "end")
         .text(d => d.data.name.replace(/_/g, " "))
-        .on("mouseover", newickvisMouseovered(true))
-        .on("mouseout", newickvisMouseovered(false));
+        .on("mouseover", traitvisMouseovered(true))
+        .on("mouseout", traitvisMouseovered(false));
 
-    function newickvisUpdate(checked) {
+    function traitvisUpdate(checked) {
         const t = d3.transition().duration(750);
         linkExtension.transition(t).attr("d", checked ? linkExtensionVariable : linkExtensionConstant);
         link.transition(t).attr("d", checked ? linkVariable : linkConstant);
     }
 
-    function newickvisMouseovered(active) {
+    function traitvisMouseovered(active) {
         return function (event, d) {
+            highlightFullGraphNode(d.data.name, active); // Highlight corresponding node in the graph
+            highlightCoarsenedGraphNode(d.data.name, active); // Highlight corresponding node in the coarsened graph
+            highlightNewickTreeNode(d.data.name, active); // Highlight corresponding node in the trait-based phylogeny
             d3.select(this).classed("label--active", active);
             d3.select(d.linkExtensionNode).classed("link-extension--active", active).raise();
             do d3.select(d.linkNode).classed("link--active", active).raise();
@@ -773,7 +1010,7 @@ function newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxL
         };
     }
 
-    return Object.assign(svg.node(), { newickvisUpdate });
+    return Object.assign(svg.node(), { traitvisUpdate });
 }
 
 function plotCurrentData() {
@@ -792,16 +1029,7 @@ function plotCurrentData() {
     let { lTable, nodeAccumulatedMutations } = buildLTable(mstep);
     lastLTable = lTable; // Update the lastLTable
 
-    let newickString;
-
-    // Check if L table has only one row
-    if (lTable.length === 1) {
-        // If there's only one node, use a fixed Newick format string for a single node with 0 branch length
-        newickString = "(t1:0);"; // Newick string for one node with no branch length
-    } else {
-        // Convert L table to Newick string
-        newickString = LTableToNewick(lastLTable, age, pruneExtinct);
-    }
+    let newickString = LTableToNewick(lastLTable, age, pruneExtinct);
 
     // Parse Newick string back into a dataset
     let newickData = parseNewick(newickString);
@@ -878,13 +1106,26 @@ function plotNewickData(data, showBranchLengths) {
     // Remove any previous chart
     d3.select("#newickvis-chart").selectAll("*").remove();
 
-    // Create the chart
-    lastChart = newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLength, outerRadius, width, linkExtensionConstant, linkConstant, linkExtensionVariable, linkVariable);
+    try {
+        // Try to create the Newick tree chart
+        lastNewickChart = newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLength, outerRadius, width, linkExtensionConstant, linkConstant, linkExtensionVariable, linkVariable);
 
-    // Append the chart to the body
-    plotContainer.appendChild(lastChart);
+        // Clear any previous content in the plot container
+        plotContainer.innerHTML = '';
 
-    lastChart.newickvisUpdate(showBranchLengths);
+        // Append the Newick chart to the plot container
+        plotContainer.appendChild(lastNewickChart);
+
+        // Try to update the Newick chart if branch lengths are to be shown
+        lastNewickChart.newickvisUpdate(showBranchLengths);
+
+    } catch (error) {
+        // If an error occurs, log it (optional)
+        console.error("Error creating or updating Newick tree:", error);
+
+        // Display a message instead of the chart
+        plotContainer.innerHTML = '<p class="error-text">No Valid Phylogenetic Tree</p>';
+    }
 }
 
 // Function to get the size of the container dynamically
@@ -897,60 +1138,71 @@ function getCoarsenedGraphContainerSize() {
 }
 
 // Function to plot the coarsened graph
-function plotCoarsenedGraph(coarsenedNodes, coarsenedLinks) {
-    // Clear the plot container
+function plotCoarsenedGraph() {
     let plotContainer = document.getElementById('coarsened-graph-container');
-    plotContainer.innerHTML = ''; // Clear any previous content
+    plotContainer.innerHTML = ''; // Clear previous content
 
-    // Get dynamic container size
     let { width, height } = getCoarsenedGraphContainerSize();
 
-    // Create SVG for the coarsened graph
     const svg = d3.select('#coarsened-graph-container').append('svg')
         .attr('width', width)
         .attr('height', height)
         .attr('viewBox', [-width / 2, -height / 2, width, height])
         .attr('style', 'max-width: 100%; height: auto;');
 
-    // Initialize simulation for the coarsened graph
-    const coarsenedSimulation = d3.forceSimulation(coarsenedNodes)
-        .force('link', d3.forceLink(coarsenedLinks).id(d => d.id).distance(100).strength(1))
+    const coarsenedSimulation = d3.forceSimulation(lastCoarsenedNodes)
+        .force('link', d3.forceLink(lastCoarsenedLinks).id(d => d.id).distance(100).strength(1))
         .force('charge', d3.forceManyBody().strength(-300))
         .force('collision', d3.forceCollide().radius(15))
         .force('center', d3.forceCenter())
         .force('x', d3.forceX())
         .force('y', d3.forceY());
 
-    // Initialize link and node elements for the coarsened graph
     let link = svg.append('g')
         .attr('stroke', '#999')
         .attr('stroke-opacity', 0.6)
         .selectAll('line')
-        .data(coarsenedLinks)
-        .enter().append('line');
+        .data(lastCoarsenedLinks)
+        .enter().append('line')
+        .on('mouseover', function (event, d) {
+            d3.select(this).attr('stroke', '#ff0').attr('stroke-width', 3); // Highlight the link
+        })
+        .on('mouseout', function (event, d) {
+            d3.select(this).attr('stroke', '#999').attr('stroke-width', 1); // Reset link style
+        });
 
     let node = svg.append('g')
         .attr('stroke-width', 1.5)
         .selectAll('g')
-        .data(coarsenedNodes)
+        .data(lastCoarsenedNodes)
         .enter().append('g')
         .call(drag(coarsenedSimulation));
 
-    // Append circles to the 'g' elements with increased radius for coarsened nodes
     node.append('circle')
         .attr('r', 10)
         .attr('fill', d => d.active ? (d.mutated ? 'red' : 'black') : 'gray')
-        .attr('stroke', d => d.mutated ? 'pink' : 'white');
+        .attr('stroke', d => d.mutated ? 'pink' : 'white')
+        .on('mouseover', graphMouseovered(true))
+        .on('mouseout', graphMouseovered(false));
 
-    // Append text to the 'g' elements for coarsened nodes
     node.append('text')
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
         .text(d => d.id)
         .style('fill', 'white')
-        .style('font-size', '12px');
+        .style('font-size', '12px')
+        // Bind hover events to the text element
+        .on('mouseover', function (event, d) {
+            // Trigger the same hover effect on the circle
+            d3.select(this.parentNode).select('circle')
+                .dispatch('mouseover');
+        })
+        .on('mouseout', function (event, d) {
+            // Trigger the same unhover effect on the circle
+            d3.select(this.parentNode).select('circle')
+                .dispatch('mouseout');
+        });
 
-    // Simulation tick function for the coarsened graph
     coarsenedSimulation.on('tick', () => {
         link
             .attr('x1', d => d.source.x)
@@ -961,7 +1213,18 @@ function plotCoarsenedGraph(coarsenedNodes, coarsenedLinks) {
         node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
-    // Drag behavior function for the coarsened graph nodes
+    function graphMouseovered(active) {
+        return function (event, d) {
+            highlightNewickTreeNode(d, active); // Highlight or unhighlight the corresponding Newick tree node
+            highlightTraitTreeNode(d, active); // Highlight or unhighlight the corresponding trait-based phylogeny node
+            highlightFullGraphNode(d.id, active); // Highlight or unhighlight the corresponding full graph node
+            d3.select(this)
+                .attr('stroke', active ? '#ff0' : d => d.mutated ? 'pink' : 'white') // Highlight or reset stroke
+                .attr('stroke-width', active ? 4 : 1.5) // Increase or reset stroke width
+                .attr('r', active ? 12 : 10); // Increase or reset node size
+        }
+    }
+
     function drag(simulation) {
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -986,10 +1249,113 @@ function plotCoarsenedGraph(coarsenedNodes, coarsenedLinks) {
             .on('end', dragended);
     }
 }
-// Function to plot traits based on their dimensions
-function plotTraits(nodeTraits, traitDimension) {
+
+function highlightNewickTreeNode(originData, highlight) {
+    // Check if originData has a id property or is a id number itself
+    if (!originData.hasOwnProperty('id')) {
+        originData = { id: originData };
+    }
+
+    let newickChartNode = d3.selectAll('#newickvis-chart text')
+        .filter(d => d.data.name === originData.id.toString())
+        .data()[0]; // Get the data for the node in the Newick tree
+
+    // Check if the node exists in the Newick tree
+    if (!newickChartNode) {
+        return;
+    }
+
+    // Traverse from the focal node to the root in the Newick tree
+    do {
+        // Highlight the corresponding label in the Newick tree
+        d3.selectAll('#newickvis-chart text')
+            .filter(d => d === newickChartNode) // Match the node in the Newick tree
+            .classed("label--active", highlight); // Highlight or unhighlight the label
+
+        // Highlight the link between the node and its parent in the Newick tree
+        d3.selectAll('#newickvis-chart path')
+            .filter(d => d.target === newickChartNode) // Match the child node
+            .classed("link--active", highlight)
+            .raise(); // Highlight or unhighlight the link
+
+        // Move to the parent node in the Newick tree
+        newickChartNode = newickChartNode.parent;
+
+    } while (newickChartNode); // Continue until the root is reached (i.e., when parent is null)
+}
+
+function highlightTraitTreeNode(originData, highlight) {
+    // Check if originData has a id property or is a id number itself
+    if (!originData.hasOwnProperty('id')) {
+        originData = { id: originData };
+    }
+
+    let traitChartNode = d3.selectAll('#traitvis-chart text')
+        .filter(d => d.data.name === originData.id.toString())
+        .data()[0]; // Get the data for the node in the trait-based phylogeny
+
+    // Check if the node exists in the trait-based phylogeny
+    if (!traitChartNode) {
+        return;
+    }
+
+    // Traverse from the focal node to the root in the trait-based phylogeny
+    do {
+        // Highlight the corresponding label in the trait-based phylogeny
+        d3.selectAll('#traitvis-chart text')
+            .filter(d => d === traitChartNode) // Match the node in the trait-based phylogeny
+            .classed("label--active", highlight); // Highlight or unhighlight the label
+
+        // Highlight the link between the node and its parent in the trait-based phylogeny
+        d3.selectAll('#traitvis-chart path')
+            .filter(d => d.target === traitChartNode) // Match the child node
+            .classed("link--active", highlight)
+            .raise(); // Highlight or unhighlight the link
+
+        // Move to the parent node in the trait-based phylogeny
+        traitChartNode = traitChartNode.parent;
+
+    } while (traitChartNode); // Continue until the root is reached (i.e., when parent is null)
+}
+
+
+// Highlight the corresponding coarsened graph node
+function highlightCoarsenedGraphNode(nodeId, highlight) {
+    d3.selectAll('#coarsened-graph-container circle')
+        .filter(d => d.id === parseInt(nodeId)) // Match the id
+        .attr('stroke', highlight ? '#ff0' : d => d.mutated ? 'pink' : 'white') // Highlight or reset stroke
+        .attr('stroke-width', highlight ? 4 : 1.5) // Increase or reset stroke width
+        .attr('r', highlight ? 12 : 10); // Increase or reset node size
+}
+
+// Highlight the corresponding full graph node
+function highlightFullGraphNode(nodeId, highlight) {
+    d3.selectAll('#graph-container circle')
+        .filter(d => d.id === parseInt(nodeId)) // Match the id
+        .attr('stroke', highlight ? '#ff0' : d => d.mutated ? 'pink' : 'white') // Highlight or reset stroke
+        .attr('stroke-width', highlight ? 4 : 1.5) // Increase or reset stroke width
+        .attr('r', highlight ? 12 : 10); // Increase or reset node size
+}
+
+function plotCurrentTraitData() {
+    // Get the value of showBranchLengths checkbox
+    let showBranchLengths = document.getElementById('showBranchLengths').checked;
+    let pruneExtinct = document.getElementById('pruneExtinct').checked;
+
+    // Convert node traits to trait-based phylogeny
+    let filteredNodeTraits = filterTraitTable(lastNodeTraits, lastLTable, pruneExtinct);
+
+    let traitPhyloString = hclustToNewick(filteredNodeTraits);
+    // Parse Newick string back into a dataset
+    let traitData = parseNewick(traitPhyloString);
+
+    // Plot the data, passing the showBranchLengths parameter
+    plotTraitData(traitData, showBranchLengths);
+}
+
+function plotTraitData(data, showBranchLengths) {
     let plotContainer = document.getElementById('trait-container');
-    console.log(nodeTraits);
+
     // Function to get plot container size
     function getPlotContainerSize() {
         return {
@@ -1000,17 +1366,221 @@ function plotTraits(nodeTraits, traitDimension) {
 
     let { width, height } = getPlotContainerSize();
 
-    const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+    // Remove any previous chart
+    let existingChart = plotContainer.querySelector('#traitvis-chart');
+    if (existingChart) {
+        plotContainer.removeChild(existingChart);
+    }
+
+    const outerRadius = width * 1.4;
+    const innerRadius = outerRadius - 170;
+    const cluster = d3.cluster()
+        .size([360, innerRadius])
+        .separation((a, b) => 1);
+
+    const maxLength = function maxLength(d) {
+        return d.data.length + (d.children ? d3.max(d.children, maxLength) : 0);
+    };
+
+    const setRadius = function setRadius(d, y0, k) {
+        d.radius = (y0 += d.data.length) * k;
+        if (d.children) d.children.forEach(d => setRadius(d, y0, k));
+    };
+
+    // Link helper functions
+    const linkStep = function linkStep(startAngle, startRadius, endAngle, endRadius) {
+        const c0 = Math.cos(startAngle = (startAngle - 90) / 180 * Math.PI);
+        const s0 = Math.sin(startAngle);
+        const c1 = Math.cos(endAngle = (endAngle - 90) / 180 * Math.PI);
+        const s1 = Math.sin(endAngle);
+        return "M" + startRadius * c0 + "," + startRadius * s0
+            + (endAngle === startAngle ? "" : "A" + startRadius + "," + startRadius + " 0 0 " + (endAngle > startAngle ? 1 : 0) + " " + startRadius * c1 + "," + startRadius * s1)
+            + "L" + endRadius * c1 + "," + endRadius * s1;
+    };
+
+    const linkConstant = function linkConstant(d) {
+        return linkStep(d.source.x, d.source.y, d.target.x, d.target.y);
+    };
+
+    const linkExtensionConstant = function linkExtensionConstant(d) {
+        return linkStep(d.target.x, d.target.y, d.target.x, innerRadius);
+    };
+
+    const linkVariable = function linkVariable(d) {
+        return linkStep(d.source.x, d.source.radius, d.target.x, d.target.radius);
+    };
+
+    const linkExtensionVariable = function linkExtensionVariable(d) {
+        return linkStep(d.target.x, d.target.radius, d.target.x, innerRadius);
+    };
+
+    // Remove any previous chart
+    d3.select("#traitvis-chart").selectAll("*").remove();
+
+    try {
+        // Try to create the chart
+        lastTraitChart = traitvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLength, outerRadius, width, linkExtensionConstant, linkConstant, linkExtensionVariable, linkVariable);
+
+        // Clear any previous content
+        plotContainer.innerHTML = '';
+
+        // Append the chart to the container
+        plotContainer.appendChild(lastTraitChart);
+
+        lastTraitChart.traitvisUpdate(showBranchLengths);
+    } catch (error) {
+        // If an error occurs, log the error (optional)
+        console.error("Error creating tree:", error);
+
+        // Display a message instead of the chart
+        plotContainer.innerHTML = '<p class="error-text">No Valid Trait Tree</p>';
+    }
+}
+
+// Function to calculate the distance matrix
+function calculateDistanceMatrix(nodeTraits) {
+    const nodeIds = Object.keys(nodeTraits); // Use actual node IDs as keys
+    const distanceMatrix = [];
+
+    for (let i = 0; i < nodeIds.length; i++) {
+        const row = [];
+        for (let j = 0; j < nodeIds.length; j++) {
+            if (i === j) {
+                row.push(0); // Distance between a node and itself is 0
+            } else {
+                const distance = euclideanDistance(nodeTraits[nodeIds[i]], nodeTraits[nodeIds[j]]);
+                row.push(distance);
+            }
+        }
+        distanceMatrix.push(row);
+    }
+
+    return { distanceMatrix, nodeIds }; // Return actual node IDs
+}
+
+// Function to calculate Euclidean distance between two nodes' traits
+function euclideanDistance(traits1, traits2) {
+    let sum = 0;
+    for (let i = 0; i < traits1.length; i++) {
+        sum += Math.pow(traits1[i] - traits2[i], 2);
+    }
+    return Math.sqrt(sum);
+}
+
+// Function to calculate the average distance between two clusters
+function averageDistance(cluster1, cluster2, distanceMatrix, nodeIds) {
+    let totalDist = 0;
+    let count = 0;
+
+    for (let i = 0; i < cluster1.nodes.length; i++) {
+        for (let j = 0; j < cluster2.nodes.length; j++) {
+            const node1 = nodeIds.indexOf(cluster1.nodes[i]);
+            const node2 = nodeIds.indexOf(cluster2.nodes[j]);
+            const dist = distanceMatrix[node1][node2]; // Ensure node1 and node2 map correctly
+            totalDist += dist;
+            count++;
+        }
+    }
+
+    return totalDist / count;
+}
+
+// Perform hierarchical clustering using UPGMA
+function performHClust(nodeTraits) {
+    const { distanceMatrix, nodeIds } = calculateDistanceMatrix(nodeTraits);
+
+    // Initialize clusters with actual node IDs
+    let clusters = nodeIds.map((id, index) => ({
+        nodes: [id],  // Store original node ID here
+        distance: 0,
+        left: null,
+        right: null
+    }));
+
+    while (clusters.length > 1) {
+        let minDist = Infinity;
+        let minPair = [-1, -1];
+
+        // Find the closest pair of clusters
+        for (let i = 0; i < clusters.length; i++) {
+            for (let j = i + 1; j < clusters.length; j++) {
+                const dist = averageDistance(clusters[i], clusters[j], distanceMatrix, nodeIds);
+                if (dist < minDist) {
+                    minDist = dist;
+                    minPair = [i, j];
+                }
+            }
+        }
+
+        // Merge the closest pair
+        const [i, j] = minPair;
+        const newCluster = {
+            nodes: [...clusters[i].nodes, ...clusters[j].nodes], // Combine node IDs
+            distance: minDist / 2,
+            left: clusters[i],
+            right: clusters[j]
+        };
+
+        // Remove the old clusters and add the new one
+        clusters = clusters.filter((_, index) => index !== i && index !== j);
+        clusters.push(newCluster);
+    }
+
+    // Return the root of the cluster tree
+    return clusters[0];
+}
+
+// Convert the hierarchical cluster tree to Newick format
+function convertClusterToNewick(cluster) {
+    // Check if there is nodes array
+    if (!cluster.nodes) {
+        return '';
+    }
+    if (cluster.nodes.length === 1) {
+        // It's a leaf node, return the actual node ID
+        return `${cluster.nodes[0]}:${cluster.distance.toFixed(2)}`;
+    } else {
+        // It's an internal node
+        const left = convertClusterToNewick(cluster.left);
+        const right = convertClusterToNewick(cluster.right);
+        return `(${left},${right}):${cluster.distance.toFixed(2)}`;
+    }
+}
+
+// Convert hierarchical clustering results to Newick format
+function hclustToNewick(nodeTraits) {
+    // Check if nodeTraits is empty
+    if (Object.keys(nodeTraits).length === 0) {
+        return ';';
+    } else {
+        const cluster = performHClust(nodeTraits);
+        return convertClusterToNewick(cluster) + ';';
+    }
+}
+
+// Function to plot traits based on their dimensions
+function plotTraits(nodeTraits, traitDimension) {
+    let plotContainer = document.getElementById('trait-container');
+    // Function to get plot container size
+    function getPlotContainerSize() {
+        return {
+            width: plotContainer.clientWidth,
+            height: plotContainer.clientHeight
+        };
+    }
+
+    let { width, height } = getPlotContainerSize();
+
+    const margin = { top: 20, right: 20, bottom: 50, left: 40 };
     const colors = d3.scaleOrdinal(d3.schemeCategory10); // Unique colors for nodes
 
     // Clear the trait container for a fresh plot
     const container = d3.select("#trait-container");
     container.selectAll("*").remove();
-
     // Create the SVG canvas
     const svg = container.append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
+        .attr("width", width - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom)
         .append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
@@ -1070,7 +1640,6 @@ function plotTraits(nodeTraits, traitDimension) {
         // Perform basic PCA (Principal Component Analysis)
         const pcaData = performPCA(nodes.map(d => d.traits), 2);
 
-        console.log(pcaData);
         // Plot the reduced PCA values
         svg.selectAll("circle")
             .data(nodes.map((node, i) => ({
@@ -1091,7 +1660,6 @@ function plotTraits(nodeTraits, traitDimension) {
 
 function performPCA(data, numComponents = 2) {
     const matrix = numeric.transpose(data);
-    console.log(matrix);
     const svdResult = numeric.svd(matrix);
     const U = svdResult.U;
     const S = svdResult.S;
@@ -1106,27 +1674,23 @@ function performPCA(data, numComponents = 2) {
     return reducedData;
 }
 
-// Add global variables to store the last L table and accumulated mutations
-let lastLTable = null;
-let lastNodeAccumulatedMutations = null;
-
 // Event listener for the Prune Extinct Lineages checkbox
 document.getElementById('pruneExtinct').addEventListener('change', () => {
     // Re-plot the data without advancing simulation step
     if (lastLTable && lastNodeAccumulatedMutations) {
         plotCurrentData();
+        plotCurrentTraitData();
     }
 });
-
-let lastChart = null;
 
 // Event listener for the Show Branch Lengths checkbox
 document.getElementById('showBranchLengths').addEventListener('change', () => {
     // Re-plot the data without advancing simulation step
-    if (lastLTable && lastNodeAccumulatedMutations && lastChart) {
+    if (lastLTable && lastNodeAccumulatedMutations && lastNewickChart && lastTraitChart) {
         // Get the current state of the checkbox
         let showBranchLengths = document.getElementById('showBranchLengths').checked;
-        lastChart.newickvisUpdate(showBranchLengths);
+        lastNewickChart.newickvisUpdate(showBranchLengths);
+        lastTraitChart.traitvisUpdate(showBranchLengths);
     }
 });
 
@@ -1135,28 +1699,9 @@ document.getElementById('mstep').addEventListener('input', () => {
     // Re-plot the data when mstep changes
     if (lastLTable && lastNodeAccumulatedMutations) {
         plotCurrentData();
+        plotCurrentTraitData();
     }
 });
-
-// Event listener for the trait model selection
-document.getElementById('traitModel').addEventListener('change', () => {
-    // Re-plot the data when trait model changes
-    if (lastLTable && lastNodeAccumulatedMutations) {
-        plotCurrentData();
-    }
-});
-
-// Event listener for the trait dimensions input field
-document.getElementById('traitDimensions').addEventListener('input', () => {
-    // Re-plot the data when trait dimensions change
-    if (lastLTable && lastNodeAccumulatedMutations) {
-        plotCurrentData();
-    }
-});
-
-// Declare global data variables for coarsened graph
-let lastCoarsenedNodes = null;
-let lastCoarsenedLinks = null;
 
 // Event listener for the coarsen level input field
 document.getElementById('mstep').addEventListener('change', () => {
@@ -1170,35 +1715,24 @@ document.getElementById('mstep').addEventListener('change', () => {
     }
 });
 
-// Event listener for the sliders controlling rates
-const birthRateSlider = document.getElementById('birthRate');
-const mutateRateSlider = document.getElementById('mutateRate');
-const deathRateSlider = document.getElementById('deathRate');
-
-const birthRateValue = document.getElementById('birthRateValue');
-const mutateRateValue = document.getElementById('mutateRateValue');
-const deathRateValue = document.getElementById('deathRateValue');
-
-let birthRate = parseFloat(birthRateSlider.value);
-let mutateRate = parseFloat(mutateRateSlider.value);
-let deathRate = parseFloat(deathRateSlider.value);
-
 birthRateSlider.addEventListener('input', function () {
     birthRateValue.textContent = parseFloat(birthRateSlider.value).toFixed(2);
     birthRate = parseFloat(birthRateSlider.value);
+    updateRates();
 });
 
 mutateRateSlider.addEventListener('input', function () {
     mutateRateValue.textContent = parseFloat(mutateRateSlider.value).toFixed(2);
     mutateRate = parseFloat(mutateRateSlider.value);
+    updateRates();
 });
 
 deathRateSlider.addEventListener('input', function () {
     deathRateValue.textContent = parseFloat(deathRateSlider.value).toFixed(2);
     deathRate = parseFloat(deathRateSlider.value);
+    updateRates()
 });
 
-let resizeTimeout;
 window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
@@ -1206,3 +1740,4 @@ window.addEventListener('resize', () => {
         updateGraph(); // Update graph after resizing ends
     }, 10); // Adjust delay as needed
 });
+

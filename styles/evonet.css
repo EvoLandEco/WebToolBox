@@ -66,6 +66,7 @@ h1 {
   border-radius: 4px;
   font-size: 14px;
   margin: 0 10px;
+  width: auto;
 }
 
 #controls button {
@@ -157,13 +158,39 @@ h1 {
   z-index: 1;
   overflow: hidden;
   transition: box-shadow 0.3s ease;
+  
+  /* Flexbox for centering content */
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
+/* Text styling for containers */
+#graph-container p,
+#coarsened-graph-container p,
+#plot-container p,
+#trait-container p {
+  margin: 0;
+  padding: 0;
+  font-size: 1.5em;  /* Adjust font size for readability */
+  color: #333;  /* Dark text color */
+  font-family: 'Arial', sans-serif;  /* Set a clean, readable font */
+  text-align: center;  /* Ensure text is centered */
+  line-height: 1.5;  /* Improve readability with proper line height */
+  font-weight: 500;  /* Slightly bold text */
+}
+
+/* Hover effect to add a subtle shadow */
 #graph-container:hover,
 #coarsened-graph-container:hover,
 #plot-container:hover,
 #trait-container:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Subtle hover effect */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Optional: Style for error or informational text */
+.error-text {
+  color: #d9534f; /* Red color for error */
 }
 
 /* Media queries for responsiveness */
