@@ -54,7 +54,7 @@ const svg = d3.select("#graph-container").append("svg")
     .attr("viewBox", [-width / 2, -height / 2, width, height])
     .attr("style", "max-width: 100%; height: auto;");
 
-// Initialize the force simulation with adjusted parameters.
+// Initialize the force simulation.
 const simulation = d3.forceSimulation(nodes)
     .force("link", d3.forceLink(links).id(d => d.id).distance(100).strength(1))
     .force("charge", d3.forceManyBody().strength(-300))
@@ -69,7 +69,7 @@ let link = svg.append("g")
     .attr("stroke-opacity", 0.6)
     .selectAll("line");
 
-// Change the node selection to 'g' elements to group circle and text together
+// Group circle and text together
 let node = svg.append("g")
     .attr("stroke-width", 1.5)
     .selectAll("g");
@@ -89,17 +89,15 @@ function updateGraph() {
     const nodeEnter = node.enter().append("g")
         .call(drag(simulation));
 
-    // Append circles to the 'g' elements with increased radius
     nodeEnter.append("circle")
         .attr("r", 10);
 
-    // Append text to the 'g' elements with increased font size
     nodeEnter.append("text")
         .attr("dy", ".35em")
         .attr("text-anchor", "middle")
         .text(d => d.id)
-        .style("fill", "white") // Adjust text color if needed
-        .style("font-size", "12px") // Increased font size
+        .style("fill", "white") 
+        .style("font-size", "12px") 
         // Bind hover events to the text element
         .on('mouseover', function (event, d) {
             // Trigger the same hover effect on the circle
@@ -205,16 +203,16 @@ function simulateStep() {
     lastCoarsenedLinks = coarsenedLinks;
     lastNodeTraits = buildTraitTable(lastNodeAccumulatedMutations, lastTraitModel);
 
-    // First plot the trait data
+    // Plot the trait data
     // plotTraits(lastNodeTraits, lastTraitDimension);
 
-    // Now plot current data as newick tree
+    // Plot current data as newick tree
     plotCurrentData();
 
     // Plot the trait-based phylogeny
     plotCurrentTraitData();
 
-    // And plot the coarsened graph
+    // Plot the coarsened graph
     plotCoarsenedGraph();
 }
 
@@ -350,8 +348,8 @@ function resetSimulation() {
     previousNodeTraits = {};
 
     updateGraph();
-    pauseSimulation(); // Ensure it's in a paused state.
-    toggleButtons(true); // Set to initial state with "Start" enabled.
+    pauseSimulation(); 
+    toggleButtons(true);
 
     // Clear the trait table display
     document.getElementById('trait-container').innerHTML = '';
@@ -361,6 +359,9 @@ function resetSimulation() {
 
     // Clear the Newick visualization
     document.getElementById('plot-container').innerHTML = '';
+
+    // Clear the full graph display, disabled for now
+    // document.getElementById('graph-container').innerHTML = '';
 
     // Resurrect the trait controls
     lockTraitControls(false);
@@ -419,7 +420,7 @@ function buildLTable(mstep) {
     coarsenedNodes.push({ id: 1, active: initialNode.active, mutated: initialNode.mutated });
 
     // Initialize nodeAccumulatedMutations for the initial node
-    nodeAccumulatedMutations[1] = 1; // Starting with 1 as per your instructions
+    nodeAccumulatedMutations[1] = 1; 
 
     // Start traversal from node 1
     traverse(1, lTableIds[1], 0, lTableIds[1], 1, 0, 1);
@@ -520,11 +521,11 @@ let previousNodeTraits = {};
 function buildTraitTable(nodeAccumulatedMutations, model) {
     let traitDimension = lastTraitDimension || 2;
 
-    // Ensure traitDimension is between 1 and 6
-    traitDimension = Math.min(Math.max(traitDimension, 1), 6);
+    // Hard-coded trait dimension limits
+    traitDimension = Math.min(Math.max(traitDimension, 1), 10);
 
     // Define the variance for the step size (slight deviation from 1)
-    const variance = 0.1; // You can adjust this to increase or decrease the variance
+    const variance = 0.1;
 
     // For new trait values or nodes that don't have a record in `previousNodeTraits`
     let nodeTraits = Object.assign({}, previousNodeTraits); // Start with previous values
@@ -557,14 +558,14 @@ function buildTraitTable(nodeAccumulatedMutations, model) {
         }
     }
 
-    // Update global `previousNodeTraits` so we keep the results for future calls
+    // Update global `previousNodeTraits`, keep the results for future calls
     previousNodeTraits = nodeTraits;
 
     return nodeTraits;
 }
 
 function filterTraitTable(nodeTraits, lTable, pruneExtinct) {
-    // Create a set of child IDs from the L table (these are the recorded nodes)
+    // Create a set of child IDs from the L table (the recorded nodes)
     let recordedNodeIds = new Set();
 
     // Loop over the L table rows
@@ -880,8 +881,7 @@ function newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxL
         .join("circle")
         .attr("transform", d => `rotate(${d.x - 90}) translate(${d.y},0)`)
         .attr("r", d => d === root ? 14 : d.children ? 0 : 18)
-        .attr("fill", d => d === root ? "#ff0000" : d.children ? "#007bff" : "#00ff00")
-        .attr("stroke", "#000")
+        .attr("fill", d => d === root ? "#f7d724" : d.children ? "#007bff" : "#757ca3")
         .attr("stroke-width", 1.5)
         .on("mouseover", newickvisMouseovered(true))
         .on("mouseout", newickvisMouseovered(false));
@@ -928,7 +928,7 @@ function traitvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLe
 
     const svg = d3.create("svg")
         .attr("id", "traitvis-chart")
-        .attr("viewBox", [-outerRadius, -outerRadius, outerRadius * 2, outerRadius * 2]) // Adjust to fit chart within the container
+        .attr("viewBox", [-outerRadius, -outerRadius, outerRadius * 2, outerRadius * 2]) // Fit chart within the container
         .attr("width", width) // Ensure SVG scales to fit the full container width
         .attr("font-family", "sans-serif")
         .attr("font-size", 40);
@@ -975,8 +975,7 @@ function traitvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLe
         .join("circle")
         .attr("transform", d => `rotate(${d.x - 90}) translate(${d.y},0)`)
         .attr("r", d => d === root ? 14 : d.children ? 0 : 18)
-        .attr("fill", d => d === root ? "#ff0000" : d.children ? "#007bff" : "#00ff00")
-        .attr("stroke", "#000")
+        .attr("fill", d => d === root ? "#f7d724" : d.children ? "#007bff" : "#757ca3")
         .attr("stroke-width", 1.5)
         .on("mouseover", traitvisMouseovered(true))
         .on("mouseout", traitvisMouseovered(false));
@@ -1738,6 +1737,6 @@ window.addEventListener('resize', () => {
     resizeTimeout = setTimeout(() => {
         plotCurrentData(); // Re-render plot after resizing ends
         updateGraph(); // Update graph after resizing ends
-    }, 10); // Adjust delay as needed
+    }, 10);
 });
 
