@@ -111,7 +111,7 @@ function simulateStep() {
     }
 
     const events = ['birth', 'birth+mutation', 'extinction'];
-    const eventProbabilities = [0.4, 0.4, 0.2]; // Adjust probabilities as needed.
+    const eventProbabilities = [birthRate, mutateRate, deathRate]; // Probabilities for each event
     const event = randomChoice(events, eventProbabilities);
 
     if (event === 'birth' || event === 'birth+mutation') {
@@ -144,12 +144,25 @@ function simulateStep() {
 
     // Build L table and get accumulated mutations
     mstep = parseInt(document.getElementById('mstep').value) || 0;
-    let { lTable, nodeAccumulatedMutations } = buildLTable(mstep);
+    let { lTable, nodeAccumulatedMutations, coarsenedNodes, coarsenedLinks } = buildLTable(mstep);
     lastLTable = lTable; // Store for later use
     lastNodeAccumulatedMutations = nodeAccumulatedMutations; // Store for later use
+    lastCoarsenedNodes = coarsenedNodes;
+    lastCoarsenedLinks = coarsenedLinks;
 
-    // Now plot current data
+    // Build trait table
+    let traitModel = document.getElementById('traitModel').value;
+    let traitDimension = parseInt(document.getElementById('traitDimensions').value) || 2;
+    let nodeTraits = buildTraitTable(lastNodeAccumulatedMutations, traitModel);
+
+    // First plot the trait data
+    plotTraits(nodeTraits, traitDimension);
+
+    // Now plot current data as newick tree
     plotCurrentData();
+
+    // And plot the coarsened graph
+    plotCoarsenedGraph(lastCoarsenedNodes, lastCoarsenedLinks);
 }
 
 // Randomly selects an active node (to ensure extinction can happen on active nodes only).
@@ -243,8 +256,14 @@ function resetSimulation() {
     pauseSimulation(); // Ensure it's in a paused state.
     toggleButtons(true); // Set to initial state with "Start" enabled.
 
-    // Clear the L table display
-    document.getElementById('lTableContainer').innerHTML = '';
+    // Clear the trait table display
+    document.getElementById('trait-container').innerHTML = '';
+
+    // Clear the coarsened graph display
+    document.getElementById('coarsened-graph-container').innerHTML = '';
+
+    // Clear the Newick visualization
+    document.getElementById('plot-container').innerHTML = '';
 }
 
 // Toggle button states based on the simulation status.
@@ -265,12 +284,14 @@ document.getElementById('resetButton').addEventListener('click', resetSimulation
 toggleButtons(true);
 
 function buildLTable(mstep) {
-    // Initialize L table
+    // Initialize L table and coarsened graph data
     let lTable = [];
     let lTableIds = {}; // mapping from simulation node ids to L table ids
     let nodeAccumulatedMutations = {}; // mapping from node ids to accumulated mutations
+    let coarsenedNodes = []; // Nodes in the coarsened graph
+    let coarsenedLinks = []; // Links in the coarsened graph
 
-    // Build child map
+    // Build child map for traversal
     let childMap = {};
     links.forEach(link => {
         let sourceId = link.source.id || link.source;
@@ -293,17 +314,19 @@ function buildLTable(mstep) {
         extinctTime: initialNode.extinctTime
     });
 
+    // Add initial node to coarsened graph
+    coarsenedNodes.push({ id: 1, active: initialNode.active, mutated: initialNode.mutated });
+
     // Initialize nodeAccumulatedMutations for the initial node
     nodeAccumulatedMutations[1] = 1; // Starting with 1 as per your instructions
 
     // Start traversal from node 1
-    traverse(1, lTableIds[1], 0, lTableIds[1], 1, 0);
+    traverse(1, lTableIds[1], 0, lTableIds[1], 1, 0, 1);
 
     // Function to traverse the tree
-    function traverse(nodeId, parentLTableId, mutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath) {
+    function traverse(nodeId, parentLTableId, mutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath, parentInCoarsenedGraph) {
         let node = nodes.find(n => n.id === nodeId);
 
-        // For mstep == 0, we record all nodes
         if (mstep === 0) {
             // Assign L table id
             lTableIds[nodeId] = nodeId;
@@ -321,10 +344,17 @@ function buildLTable(mstep) {
                 });
             }
 
-            // For children, parent L table id is lTableIds[nodeId]
+            // Add this node to coarsened graph
+            if (nodeId !== 1) {
+                coarsenedNodes.push({ id: nodeId, active: node.active, mutated: node.mutated });
+                coarsenedLinks.push({ source: parentInCoarsenedGraph, target: nodeId });
+                parentInCoarsenedGraph = nodeId; // Update for children
+            }
+
+            // Traverse the children
             if (childMap[nodeId]) {
                 childMap[nodeId].forEach(childId => {
-                    traverse(childId, lTableIds[nodeId], mutationsEncountered, lTableIds[nodeId], accumulatedMutations + 1, accumulatedMutationsInPath);
+                    traverse(childId, lTableIds[nodeId], mutationsEncountered, lTableIds[nodeId], accumulatedMutations + 1, accumulatedMutationsInPath, parentInCoarsenedGraph);
                 });
             }
         } else {
@@ -356,17 +386,21 @@ function buildLTable(mstep) {
                     extinctTime: node.extinctTime
                 });
 
-                lastRecordedLTableId = lTableIds[nodeId];
+                // Add this node to coarsened graph
+                coarsenedNodes.push({ id: nodeId, active: node.active, mutated: node.mutated });
+                coarsenedLinks.push({ source: parentInCoarsenedGraph, target: nodeId });
+                parentInCoarsenedGraph = nodeId;
 
+                lastRecordedLTableId = lTableIds[nodeId];
                 accumulatedMutationsInPath = 0; // Reset after recording
             } else {
                 accumulatedMutationsInPath += node.mutated ? 1 : 0;
             }
 
-            // For children, parent L table id remains the same
+            // Traverse the children
             if (childMap[nodeId]) {
                 childMap[nodeId].forEach(childId => {
-                    traverse(childId, parentLTableId, newMutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath);
+                    traverse(childId, parentLTableId, newMutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath, parentInCoarsenedGraph);
                 });
             }
         }
@@ -375,9 +409,12 @@ function buildLTable(mstep) {
     // Sort the L table based on the childId (third column)
     lTable.sort((a, b) => a.childId - b.childId);
 
-    // Return the L table and the accumulated mutations
-    return { lTable, nodeAccumulatedMutations };
+    // Return the L table, the accumulated mutations, and the coarsened graph
+    return { lTable, nodeAccumulatedMutations, coarsenedNodes, coarsenedLinks };
 }
+
+// Store a global trait table
+let previousNodeTraits = {};
 
 function buildTraitTable(nodeAccumulatedMutations, model) {
     let traitDimension = parseInt(document.getElementById('traitDimensions').value) || 2;
@@ -385,33 +422,45 @@ function buildTraitTable(nodeAccumulatedMutations, model) {
     // Ensure traitDimension is between 1 and 6
     traitDimension = Math.min(Math.max(traitDimension, 1), 6);
 
-    let nodeTraits = {}; // mapping from node ids to trait coordinates
+    // Define the variance for the step size (slight deviation from 1)
+    const variance = 0.1; // You can adjust this to increase or decrease the variance
+
+    // For new trait values or nodes that don't have a record in `previousNodeTraits`
+    let nodeTraits = Object.assign({}, previousNodeTraits); // Start with previous values
 
     // For each node, perform the trait change model
     for (let nodeId in nodeAccumulatedMutations) {
-        let steps = nodeAccumulatedMutations[nodeId];
-        let coordinate = Array(traitDimension).fill(0); // Start from the origin
+        // Check if the nodeId already has traits in the existing `nodeTraits`
+        if (!nodeTraits.hasOwnProperty(nodeId)) {
+            let steps = nodeAccumulatedMutations[nodeId];
+            let coordinate = Array(traitDimension).fill(0); // Start from the origin for new nodes
 
-        if (model === 'brownian') {
-            // Brownian Motion model
-            for (let i = 0; i < steps; i++) {
-                // Randomly select a dimension
-                let dim = Math.floor(Math.random() * traitDimension);
-                // Randomly decide to increment or decrement
-                let delta = Math.random() < 0.5 ? -1 : 1;
-                // Update the coordinate
-                coordinate[dim] += delta;
+            if (model === 'brownian') {
+                // Brownian Motion model
+                for (let i = 0; i < steps; i++) {
+                    // Randomly select a dimension
+                    let dim = Math.floor(Math.random() * traitDimension);
+                    
+                    // Randomly decide to increment or decrement, with a small variance on top of 1
+                    let delta = (Math.random() < 0.5 ? -1 : 1) * (1 + (Math.random() * variance * 2 - variance));
+                    
+                    // Update the coordinate
+                    coordinate[dim] += delta;
+                }
+            } else {
+                // Implement other models here
             }
-        } else {
-            // Implement other models here
-        }
 
-        nodeTraits[nodeId] = coordinate;
+            // Store the result in nodeTraits for new nodes
+            nodeTraits[nodeId] = coordinate;
+        }
     }
+
+    // Update global `previousNodeTraits` so we keep the results for future calls
+    previousNodeTraits = nodeTraits;
 
     return nodeTraits;
 }
-
 
 // Function to display the L table using DataTables
 function displayLTable(lTable) {
@@ -425,7 +474,7 @@ function displayLTable(lTable) {
 
     let thead = document.createElement('thead');
     let headerRow = document.createElement('tr');
-    
+
     ['Event Time', 'Parent ID', 'Child ID', 'Extinct Time'].forEach(text => {
         let th = document.createElement('th');
         th.innerText = text;
@@ -446,7 +495,7 @@ function displayLTable(lTable) {
         cellChildId.innerText = entry.childId;
         let cellExtinctTime = document.createElement('td');
         cellExtinctTime.innerText = entry.extinctTime;
-        
+
         row.appendChild(cellEventTime);
         row.appendChild(cellParentId);
         row.appendChild(cellChildId);
@@ -458,7 +507,7 @@ function displayLTable(lTable) {
     container.appendChild(table);
 
     // Apply DataTables to the table
-    $(document).ready(function() {
+    $(document).ready(function () {
         $('#lTable').DataTable({
             paging: true,
             searching: true,
@@ -547,7 +596,7 @@ function LTableToNewick(LTable, age, pruneExtinct) {
 
         // Collect labels of extinct species
         let extinctLabels = LTable.filter(row => row.extinctTime !== -1)
-                                  .map(row => 't' + Math.abs(row.childId));
+            .map(row => 't' + Math.abs(row.childId));
 
         // Remove extinct tips from the tree
         treeData = pruneTree(treeData, extinctLabels);
@@ -648,7 +697,7 @@ function newwickvisShowLength() {
 }
 
 function newickvisDrawRadialTree(d3, data, cluster, setRadius, innerRadius, maxLength, outerRadius, width, linkExtensionConstant, linkConstant, linkExtensionVariable, linkVariable) {
-        const root = d3.hierarchy(data, d => d.branchset)
+    const root = d3.hierarchy(data, d => d.branchset)
         .sum(d => d.branchset ? 0 : 1)
         .sort((a, b) => (a.value - b.value) || d3.ascending(a.data.length, b.data.length));
 
@@ -742,11 +791,6 @@ function plotCurrentData() {
     // Rebuild the L table and accumulated mutations based on the new mstep
     let { lTable, nodeAccumulatedMutations } = buildLTable(mstep);
     lastLTable = lTable; // Update the lastLTable
-    lastNodeAccumulatedMutations = nodeAccumulatedMutations; // Update the lastNodeAccumulatedMutations
-
-    // Build the trait table
-    let traitModel = document.getElementById('traitModel').value;
-    let nodeTraits = buildTraitTable(lastNodeAccumulatedMutations, traitModel);
 
     let newickString;
 
@@ -763,7 +807,7 @@ function plotCurrentData() {
     let newickData = parseNewick(newickString);
 
     // Display the L table
-    displayLTable(lTable);
+    // displayLTable(lTable);
 
     // Plot the data, passing the showBranchLengths parameter
     plotNewickData(newickData, showBranchLengths);
@@ -843,6 +887,225 @@ function plotNewickData(data, showBranchLengths) {
     lastChart.newickvisUpdate(showBranchLengths);
 }
 
+// Function to get the size of the container dynamically
+function getCoarsenedGraphContainerSize() {
+    const container = document.getElementById('coarsened-graph-container');
+    return {
+        width: container.clientWidth,
+        height: container.clientHeight
+    };
+}
+
+// Function to plot the coarsened graph
+function plotCoarsenedGraph(coarsenedNodes, coarsenedLinks) {
+    // Clear the plot container
+    let plotContainer = document.getElementById('coarsened-graph-container');
+    plotContainer.innerHTML = ''; // Clear any previous content
+
+    // Get dynamic container size
+    let { width, height } = getCoarsenedGraphContainerSize();
+
+    // Create SVG for the coarsened graph
+    const svg = d3.select('#coarsened-graph-container').append('svg')
+        .attr('width', width)
+        .attr('height', height)
+        .attr('viewBox', [-width / 2, -height / 2, width, height])
+        .attr('style', 'max-width: 100%; height: auto;');
+
+    // Initialize simulation for the coarsened graph
+    const coarsenedSimulation = d3.forceSimulation(coarsenedNodes)
+        .force('link', d3.forceLink(coarsenedLinks).id(d => d.id).distance(100).strength(1))
+        .force('charge', d3.forceManyBody().strength(-300))
+        .force('collision', d3.forceCollide().radius(15))
+        .force('center', d3.forceCenter())
+        .force('x', d3.forceX())
+        .force('y', d3.forceY());
+
+    // Initialize link and node elements for the coarsened graph
+    let link = svg.append('g')
+        .attr('stroke', '#999')
+        .attr('stroke-opacity', 0.6)
+        .selectAll('line')
+        .data(coarsenedLinks)
+        .enter().append('line');
+
+    let node = svg.append('g')
+        .attr('stroke-width', 1.5)
+        .selectAll('g')
+        .data(coarsenedNodes)
+        .enter().append('g')
+        .call(drag(coarsenedSimulation));
+
+    // Append circles to the 'g' elements with increased radius for coarsened nodes
+    node.append('circle')
+        .attr('r', 10)
+        .attr('fill', d => d.active ? (d.mutated ? 'red' : 'black') : 'gray')
+        .attr('stroke', d => d.mutated ? 'pink' : 'white');
+
+    // Append text to the 'g' elements for coarsened nodes
+    node.append('text')
+        .attr('dy', '.35em')
+        .attr('text-anchor', 'middle')
+        .text(d => d.id)
+        .style('fill', 'white')
+        .style('font-size', '12px');
+
+    // Simulation tick function for the coarsened graph
+    coarsenedSimulation.on('tick', () => {
+        link
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // Drag behavior function for the coarsened graph nodes
+    function drag(simulation) {
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        return d3.drag()
+            .on('start', dragstarted)
+            .on('drag', dragged)
+            .on('end', dragended);
+    }
+}
+// Function to plot traits based on their dimensions
+function plotTraits(nodeTraits, traitDimension) {
+    let plotContainer = document.getElementById('trait-container');
+    console.log(nodeTraits);
+    // Function to get plot container size
+    function getPlotContainerSize() {
+        return {
+            width: plotContainer.clientWidth,
+            height: plotContainer.clientHeight
+        };
+    }
+
+    let { width, height } = getPlotContainerSize();
+
+    const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+    const colors = d3.scaleOrdinal(d3.schemeCategory10); // Unique colors for nodes
+
+    // Clear the trait container for a fresh plot
+    const container = d3.select("#trait-container");
+    container.selectAll("*").remove();
+
+    // Create the SVG canvas
+    const svg = container.append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    // Set up scales
+    const xScale = d3.scaleLinear()
+        .domain([-10, 10]) // Customize the domain based on expected trait values
+        .range([0, width]);
+
+    const yScale = d3.scaleLinear()
+        .domain([-10, 10]) // Customize the domain based on expected trait values
+        .range([height, 0]);
+
+    // Add X axis
+    svg.append("g")
+        .attr("transform", `translate(0, ${height})`)
+        .call(d3.axisBottom(xScale));
+
+    // Add Y axis
+    svg.append("g")
+        .call(d3.axisLeft(yScale));
+
+    // Create circles for nodes with unique colors and transition
+    const nodes = Object.keys(nodeTraits).map(nodeId => ({
+        id: nodeId,
+        traits: nodeTraits[nodeId]
+    }));
+
+    if (traitDimension === 1) {
+        // Plot on the X-axis
+        svg.selectAll("circle")
+            .data(nodes, d => d.id)
+            .join("circle")
+            .attr("cx", d => xScale(d.traits[0]))
+            .attr("cy", yScale(0)) // All nodes are on the Y=0 line
+            .attr("r", 5)
+            .attr("fill", d => colors(d.id))
+            .transition() // Apply animation
+            .duration(1000)
+            .attr("cx", d => xScale(d.traits[0]));
+
+    } else if (traitDimension === 2) {
+        // Plot on a 2D plane
+        svg.selectAll("circle")
+            .data(nodes, d => d.id)
+            .join("circle")
+            .attr("cx", d => xScale(d.traits[0]))
+            .attr("cy", d => yScale(d.traits[1]))
+            .attr("r", 5)
+            .attr("fill", d => colors(d.id))
+            .transition() // Apply animation
+            .duration(1000)
+            .attr("cx", d => xScale(d.traits[0]))
+            .attr("cy", d => yScale(d.traits[1]));
+
+    } else {
+        // For trait dimensions > 2, apply dimension reduction (e.g., PCA)
+        // Perform basic PCA (Principal Component Analysis)
+        const pcaData = performPCA(nodes.map(d => d.traits), 2);
+
+        console.log(pcaData);
+        // Plot the reduced PCA values
+        svg.selectAll("circle")
+            .data(nodes.map((node, i) => ({
+                id: node.id,
+                traits: pcaData[i]
+            })))
+            .join("circle")
+            .attr("cx", d => xScale(d.traits[0]))
+            .attr("cy", d => yScale(d.traits[1]))
+            .attr("r", 5)
+            .attr("fill", d => colors(d.id))
+            .transition() // Apply animation
+            .duration(1000)
+            .attr("cx", d => xScale(d.traits[0]))
+            .attr("cy", d => yScale(d.traits[1]));
+    }
+}
+
+function performPCA(data, numComponents = 2) {
+    const matrix = numeric.transpose(data);
+    console.log(matrix);
+    const svdResult = numeric.svd(matrix);
+    const U = svdResult.U;
+    const S = svdResult.S;
+    const V = svdResult.V;
+
+    // Select the top components (principal components)
+    const topComponents = V.slice(0, numComponents).map(row => row.slice(0, numComponents));
+
+    // Project data onto the top principal components
+    const reducedData = numeric.dot(data, numeric.transpose(topComponents));
+
+    return reducedData;
+}
+
 // Add global variables to store the last L table and accumulated mutations
 let lastLTable = null;
 let lastNodeAccumulatedMutations = null;
@@ -873,6 +1136,66 @@ document.getElementById('mstep').addEventListener('input', () => {
     if (lastLTable && lastNodeAccumulatedMutations) {
         plotCurrentData();
     }
+});
+
+// Event listener for the trait model selection
+document.getElementById('traitModel').addEventListener('change', () => {
+    // Re-plot the data when trait model changes
+    if (lastLTable && lastNodeAccumulatedMutations) {
+        plotCurrentData();
+    }
+});
+
+// Event listener for the trait dimensions input field
+document.getElementById('traitDimensions').addEventListener('input', () => {
+    // Re-plot the data when trait dimensions change
+    if (lastLTable && lastNodeAccumulatedMutations) {
+        plotCurrentData();
+    }
+});
+
+// Declare global data variables for coarsened graph
+let lastCoarsenedNodes = null;
+let lastCoarsenedLinks = null;
+
+// Event listener for the coarsen level input field
+document.getElementById('mstep').addEventListener('change', () => {
+    // Re-plot the data when coarsen level changes
+    let mstep = parseInt(document.getElementById('mstep').value) || 0;
+    if (lastCoarsenedNodes && lastCoarsenedLinks) {
+        let { lTable, nodeAccumulatedMutations, coarsenedNodes, coarsenedLinks } = buildLTable(mstep);
+        lastCoarsenedNodes = coarsenedNodes;
+        lastCoarsenedLinks = coarsenedLinks;
+        plotCoarsenedGraph(lastCoarsenedNodes, lastCoarsenedLinks);
+    }
+});
+
+// Event listener for the sliders controlling rates
+const birthRateSlider = document.getElementById('birthRate');
+const mutateRateSlider = document.getElementById('mutateRate');
+const deathRateSlider = document.getElementById('deathRate');
+
+const birthRateValue = document.getElementById('birthRateValue');
+const mutateRateValue = document.getElementById('mutateRateValue');
+const deathRateValue = document.getElementById('deathRateValue');
+
+let birthRate = parseFloat(birthRateSlider.value);
+let mutateRate = parseFloat(mutateRateSlider.value);
+let deathRate = parseFloat(deathRateSlider.value);
+
+birthRateSlider.addEventListener('input', function () {
+    birthRateValue.textContent = parseFloat(birthRateSlider.value).toFixed(2);
+    birthRate = parseFloat(birthRateSlider.value);
+});
+
+mutateRateSlider.addEventListener('input', function () {
+    mutateRateValue.textContent = parseFloat(mutateRateSlider.value).toFixed(2);
+    mutateRate = parseFloat(mutateRateSlider.value);
+});
+
+deathRateSlider.addEventListener('input', function () {
+    deathRateValue.textContent = parseFloat(deathRateSlider.value).toFixed(2);
+    deathRate = parseFloat(deathRateSlider.value);
 });
 
 let resizeTimeout;
