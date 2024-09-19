@@ -109,11 +109,11 @@ h1 {
 @media (max-width: 1399px) {
   #controls {
     grid-template-columns: repeat(2, 1fr); /* 2 columns for medium screens */
-    grid-template-rows: auto auto auto auto; /* Each column has 4 rows */
+    grid-template-rows: auto auto auto auto; 
   }
 
   .slider-column, .step-column, .model-column, .button-column {
-    grid-template-rows: 1fr 1fr 1fr 1fr; /* Adjust rows for 4 items */
+    grid-template-rows: 1fr 1fr 1fr 1fr; 
   }
 }
 
@@ -121,11 +121,11 @@ h1 {
 @media (max-width: 799px) {
   #controls {
     grid-template-columns: 1fr; /* 1 column for small screens */
-    grid-template-rows: auto auto auto auto; /* Each column has 4 rows */
+    grid-template-rows: auto auto auto auto; 
   }
 
   .slider-column, .step-column, .model-column, .button-column {
-    grid-template-rows: 1fr 1fr 1fr 1fr; /* Adjust rows for 4 items */
+    grid-template-rows: 1fr 1fr 1fr 1fr; 
   }
 }
 
@@ -151,7 +151,7 @@ h1 {
 #trait-container {
   aspect-ratio: 1 / 1;
   border: 1px solid #ddd;
-  background-color: #fff;
+  background-color: #fffdf9;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: relative;
@@ -172,12 +172,11 @@ h1 {
 #trait-container p {
   margin: 0;
   padding: 0;
-  font-size: 1.5em;  /* Adjust font size for readability */
-  color: #333;  /* Dark text color */
-  font-family: 'Arial', sans-serif;  /* Set a clean, readable font */
-  text-align: center;  /* Ensure text is centered */
-  line-height: 1.5;  /* Improve readability with proper line height */
-  font-weight: 500;  /* Slightly bold text */
+  font-size: 1.5em; 
+  font-family: 'Arial', sans-serif; 
+  text-align: center; 
+  line-height: 1.5; 
+  font-weight: 500; 
 }
 
 /* Hover effect to add a subtle shadow */
@@ -188,9 +187,19 @@ h1 {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
-/* Optional: Style for error or informational text */
+.panel-title {
+color: #757ca3;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px 8px 0 0;
+  text-align: center;
+}
+
+/* Style for error or informational text */
 .error-text {
-  color: #d9534f; /* Red color for error */
+  color: #c67351; /* Color for error */
 }
 
 /* Media queries for responsiveness */

@@ -2,22 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Sub-species diversification and tree coarsening</title>
+    <title>Sub-species Diversification and Tree Coarsening</title>
     <link rel="stylesheet" href="/styles/evonet.css">
-    <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
-
-    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
 </head>
 <body>
 
-    <h1>Sub-species diversification and tree coarsening</h1>
+    <h1>Sub-species Diversification and Tree Coarsening</h1>
 
     <div id="controls">
         <div class="slider-column">
@@ -40,7 +35,7 @@
     
         <div class="step-column">
             <label for="maxSteps">Max Simulation Steps:</label>
-            <input type="number" id="maxSteps" value="50" min="1" max="60" step="1">
+            <input type="number" id="maxSteps" value="20" min="1" max="50" step="1">
             
             <div>
                 <label for="traitModel">Trait Model:</label>
@@ -75,10 +70,22 @@
 
     <div id="main-container">
         <div id="content-container">
-            <div id="graph-container"></div>
-            <div id="coarsened-graph-container"></div>
-            <div id="plot-container"></div>
-            <div id="trait-container"></div>
+            <div>
+                <h2 class="panel-title">Full Graph</h2>
+                <div id="graph-container"></div>
+            </div>
+            <div>
+                <h2 class="panel-title">Coarsened Graph</h2>
+                <div id="coarsened-graph-container"></div>
+            </div>
+            <div>
+                <h2 class="panel-title">Phylogenetic Tree</h2>
+                <div id="plot-container"></div>
+            </div>
+            <div>
+                <h2 class="panel-title">Trait Tree</h2>
+                <div id="trait-container"></div>
+            </div>
         </div>
     </div>
 
