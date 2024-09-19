@@ -483,18 +483,19 @@ function buildLTable(mstep) {
         // Accumulated mutations are based on the number of mutated nodes encountered
         accumulatedMutations = newMutationsEncountered;
 
-        let shouldRecord = false;
+        // Always record the mutation number for every node in nodeAccumulatedMutations
+        nodeAccumulatedMutations[nodeId] = accumulatedMutations;
 
+        let shouldRecordInLTable = false;
+
+        // Coarsened graph respects mstep for recording in the L table
         if (mstep === 0 || (node.mutated && newMutationsEncountered === mstep)) {
-            shouldRecord = true;
+            shouldRecordInLTable = true;
         }
 
-        if (shouldRecord) {
+        if (shouldRecordInLTable) {
             // Assign L table id
             lTableIds[nodeId] = nodeId;
-
-            // Record accumulated mutations
-            nodeAccumulatedMutations[nodeId] = accumulatedMutations;
 
             // Record entry in L table
             if (nodeId !== 1) { // Skip initial node since it's already added
