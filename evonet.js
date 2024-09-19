@@ -465,35 +465,19 @@ function buildLTable(mstep) {
     coarsenedNodes.push({ id: 1, active: initialNode.active, mutated: initialNode.mutated });
 
     // Initialize nodeAccumulatedMutations for the initial node
-    nodeAccumulatedMutations[1] = 0; // Initial node has zero mutations
+    nodeAccumulatedMutations[1] = 0;
 
     // Start traversal from node 1
-    traverse(1, lTableIds[1], 0, lTableIds[1], 0, 0, 1);
+    traverse(1, lTableIds[1], 0, lTableIds[1], 1, 0, 1);
 
     // Function to traverse the tree
     function traverse(nodeId, parentLTableId, mutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath, parentInCoarsenedGraph) {
         let node = nodes.find(n => n.id === nodeId);
 
-        // The mutation count is always the number of intermediate mutated nodes
-        let newMutationsEncountered = mutationsEncountered;
-        if (node.mutated) {
-            newMutationsEncountered += 1;
-        }
-
-        // Accumulated mutations are based on the number of mutated nodes encountered
-        accumulatedMutations = newMutationsEncountered;
-
-        // Always record the mutation number for every node in nodeAccumulatedMutations
+        // Always record accumulated mutations, regardless of mstep
         nodeAccumulatedMutations[nodeId] = accumulatedMutations;
 
-        let shouldRecordInLTable = false;
-
-        // Coarsened graph respects mstep for recording in the L table
-        if (mstep === 0 || (node.mutated && newMutationsEncountered === mstep)) {
-            shouldRecordInLTable = true;
-        }
-
-        if (shouldRecordInLTable) {
+        if (mstep === 0) {
             // Assign L table id
             lTableIds[nodeId] = nodeId;
 
@@ -501,7 +485,7 @@ function buildLTable(mstep) {
             if (nodeId !== 1) { // Skip initial node since it's already added
                 lTable.push({
                     eventTime: node.birthTime,
-                    parentId: lastRecordedLTableId,
+                    parentId: parentLTableId,
                     childId: lTableIds[nodeId],
                     extinctTime: node.extinctTime
                 });
@@ -514,15 +498,55 @@ function buildLTable(mstep) {
                 parentInCoarsenedGraph = nodeId; // Update for children
             }
 
-            lastRecordedLTableId = lTableIds[nodeId];
-            accumulatedMutationsInPath = 0; // Reset the mutations path count for children
-        }
+            // Traverse the children
+            if (childMap[nodeId]) {
+                childMap[nodeId].forEach(childId => {
+                    traverse(childId, lTableIds[nodeId], mutationsEncountered, lTableIds[nodeId], accumulatedMutations + 1, accumulatedMutationsInPath, parentInCoarsenedGraph);
+                });
+            }
+        } else {
+            // mstep > 0
+            let newMutationsEncountered = mutationsEncountered;
+            if (node.mutated) {
+                newMutationsEncountered += 1;
+            }
 
-        // Traverse the children
-        if (childMap[nodeId]) {
-            childMap[nodeId].forEach(childId => {
-                traverse(childId, parentLTableId, newMutationsEncountered, lastRecordedLTableId, accumulatedMutations, accumulatedMutationsInPath, parentInCoarsenedGraph);
-            });
+            let shouldRecord = false;
+
+            if (node.mutated && newMutationsEncountered === mstep) {
+                shouldRecord = true;
+                newMutationsEncountered = 0; // Reset counter after recording
+            }
+
+            if (shouldRecord) {
+                // Assign L table id
+                lTableIds[nodeId] = nodeId;
+
+                // Record entry in L table
+                lTable.push({
+                    eventTime: node.birthTime,
+                    parentId: lastRecordedLTableId,
+                    childId: lTableIds[nodeId],
+                    extinctTime: node.extinctTime
+                });
+
+                // Add this node to coarsened graph
+                coarsenedNodes.push({ id: nodeId, active: node.active, mutated: node.mutated });
+                coarsenedLinks.push({ source: parentInCoarsenedGraph, target: nodeId });
+                parentInCoarsenedGraph = nodeId;
+
+                lastRecordedLTableId = lTableIds[nodeId];
+                accumulatedMutationsInPath = 0; // Reset after recording
+            } else {
+                accumulatedMutationsInPath += node.mutated ? 1 : 0;
+            }
+
+            // Traverse the children
+            if (childMap[nodeId]) {
+                childMap[nodeId].forEach(childId => {
+                    traverse(childId, parentLTableId, newMutationsEncountered, lastRecordedLTableId, accumulatedMutations + 1, accumulatedMutationsInPath, parentInCoarsenedGraph);
+                });
+            }
         }
     }
 
