@@ -361,6 +361,8 @@ function pauseSimulation() {
 
 // Reset the simulation to its initial state.
 function resetSimulation() {
+    pauseSimulation();
+    
     // Initialize node ID counter and data arrays.
     nodeId = 1;
     nodes = [{ id: nodeId, active: true, mutated: false, birthTime: 0, extinctTime: -1 }];
@@ -405,7 +407,6 @@ function resetSimulation() {
     plotCurrentData();
     plotCurrentTraitData();
     plotCoarsenedGraph(lastCoarsenedNodes, lastCoarsenedLinks);
-    pauseSimulation();
     toggleButtons(true);
 
     // Resurrect the trait controls
