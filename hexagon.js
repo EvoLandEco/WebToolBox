@@ -1,154 +1,322 @@
-// Define grid size
-const gridRadius = 10;
+// Declare variables
+let gridRadius;
+let obstacleProbability;
+let methodHexZero;
 
-// Define hexagon size
-const hexDimension = 24;
+let globalBetaN;
+let globalBetaPhi;
+let globalGammaN;
+let globalGammaPhi;
+let globalDeltaN;
+let globalDeltaPhi;
 
-// Define method to select initial hexagon
-const methodHexZero = 'center';
+let intrinsicBirthRate;
+let intrinsicMutationRate;
+let intrinsicDeathRate;
+let intrinsicMigrationRate;
 
-// Define global environmental variables
-const globalBetaN = -0.01; // Effect size of species richness on speciation rate
-const globalBetaPhi = -0.01; // Effect size of evolutionary relatedness on speciation rate
-const globalGammaN = 0.01; // Effect size of species richness on extinction rate
-const globalGammaPhi = 0.001; // Effect size of evolutionary relatedness on extinction rate
-const globalDeltaN = 0.01; // Effect size of species richness on migration rate
-const globalDeltaPhi = 0.00; // Effect size of evolutionary relatedness on migration rate
-
-// Define intrinsic species properties
-const intrinsicBirthRate = 0.5;
-const intrinsicMutationRate = 0.5;
-const intrinsicDeathRate = 0.2;
-const intrinsicMigrationRate = 0.5;
-
-// Define simulation length in time units
-const simulationTime = 50;
+let simulationTime;
 let currentTime = 0;
 
-// Define the base Hex class
-const BaseHex = Honeycomb.defineHex(
-    {
-      dimensions: hexDimension
-    }
-);
+const hexDimension = 24; // Hexagon size remains constant
 
-// Define the custom Hex class by extending the base class
-class Hex extends BaseHex {
-  constructor(...args) {
-    super(...args); // Call the base class constructor
-    // Initialize custom properties
-    this.speciesData = null;
-    this.environmentData = null;
-    this.cubeCoordinates = null; // Adding cube coordinates for hexagons
-  }
+// Variables to control simulation state
+let simulationRunning = false;
+let simulationPaused = false;
+let speciesIndexArray = []; // Moved to global scope for reset functionality
 
-  // Add methods to get and set the data
-  getSpeciesData() {
-    return this.speciesData;
-  }
-  setSpeciesData(data) {
-    this.speciesData = data;
-  }
-  getEnvironmentData() {
-    return this.environmentData;
-  }
-  setEnvironmentData(data) {
-    this.environmentData = data;
-  }
-  addSpecies(species) {
-    if (!this.speciesData) {
-      this.speciesData = [];
-    }
-    this.speciesData.push(species);
-    species.setHex(this);
-  }
-  removeSpecies(species) {
-    if (this.speciesData) {
-      this.speciesData = this.speciesData.filter(s => s !== species);
-    }
-  }
-  migrateSpecies(species, targetHex) {
-    this.removeSpecies(species);
-    targetHex.addSpecies(species);
-    species.setHex(targetHex);
-  }
+// Variables for grid and SVG elements
+let grid;
+let svg;
+let tooltip;
+
+// Set up the SVG canvas dimensions
+const svgWidth = 1200;
+const svgHeight = 1200;
+const gapScale = 0;
+
+// Variables for classes and functions
+let Hex;
+let Species;
+let createChildSpecies;
+let setSpeciesExtinct;
+let updateRates;
+let countNonExtinctSpecies;
+let getRandomBorderHex;
+let getCenterHex;
+let getRandomHex;
+let selectHexZero;
+let simulateNextEvent;
+let executeEvent;
+let getHexNeighbors;
+let getColor;
+let updateVisualization;
+let updateTooltipContent;
+
+// Function to enable or disable settings inputs
+function toggleSettings(disabled) {
+  const inputs = document.querySelectorAll('#controlPanel input, #controlPanel select');
+  inputs.forEach(input => {
+    input.disabled = disabled;
+  });
 }
 
-// Maintain a global species index array
-const speciesIndexArray = [];
+// Function to initialize the simulation parameters from HTML inputs
+function initializeSimulation() {
+  // Get values from HTML elements
+  gridRadius = parseInt(document.getElementById('gridRadius').value);
+  obstacleProbability = parseFloat(document.getElementById('obstacleProbability').value);
+  methodHexZero = document.getElementById('methodHexZero').value;
 
-// Define the species class with unique index and intrinsic species properties
-class Species {
-  constructor(index, parent = null, hex, timeBirth = 0, timeDeath = -1) {
-    this.index = index;
-    this.parent = parent;
-    this.hex = hex;
-    this.birthRate = intrinsicBirthRate;
-    this.mutationRate = intrinsicMutationRate;
-    this.deathRate = intrinsicDeathRate;
-    this.migrationRate = intrinsicMigrationRate;
-    this.active = true;
-    this.timeBirth = timeBirth;
-    this.timeDeath = timeDeath;
-  }
+  globalBetaN = parseFloat(document.getElementById('globalBetaN').value);
+  globalBetaPhi = parseFloat(document.getElementById('globalBetaPhi').value);
+  globalGammaN = parseFloat(document.getElementById('globalGammaN').value);
+  globalGammaPhi = parseFloat(document.getElementById('globalGammaPhi').value);
+  globalDeltaN = parseFloat(document.getElementById('globalDeltaN').value);
+  globalDeltaPhi = parseFloat(document.getElementById('globalDeltaPhi').value);
 
-  // Getters and setters of the rates and status (extinct or not)
-  getIndex() {
-    return this.index;
-  }
-  getParentIndex() {
-    return this.parent;
-  }
-  getHex() {
-    return this.hex;
-  }
-  setHex(hex) {
-    this.hex = hex;
-  }
-  getTimeBirth() {
-    return this.timeBirth;
-  }
-  getTimeDeath() {
-    return this.timeDeath;
-  }
-  getBirthRate() {
-    return this.birthRate;
-  }
-  setBirthRate(rate) {
-    this.birthRate = rate;
-  }
-  getMutationRate() {
-    return this.mutationRate;
-  }
-  setMutationRate(rate) {
-    this.mutationRate = rate;
-  }
-  getDeathRate() {
-    return this.deathRate;
-  }
-  setDeathRate(rate) {
-    this.deathRate = rate;
-  }
-  getMigrationRate() {
-    return this.migrationRate;
-  }
-  setMigrationRate(rate) {
-    this.migrationRate = rate;
-  }
-  isActive() {
-    return this.active;
-  }
-  setExtinct(time) {
-    this.active = false;
-    this.timeDeath = time;
-  }
-  setMigrate(hex) {
-    this.hex = hex;
-  }
+  intrinsicBirthRate = parseFloat(document.getElementById('intrinsicBirthRate').value);
+  intrinsicMutationRate = parseFloat(document.getElementById('intrinsicMutationRate').value);
+  intrinsicDeathRate = parseFloat(document.getElementById('intrinsicDeathRate').value);
+  intrinsicMigrationRate = parseFloat(document.getElementById('intrinsicMigrationRate').value);
+
+  simulationTime = parseInt(document.getElementById('simulationTime').value);
+  currentTime = 0;
+
+  // Clear previous species index array
+  speciesIndexArray = [];
+
+  // Initialize the SVG canvas
+  svg = d3.select('#svgCanvas')
+      .attr('width', svgWidth)
+      .attr('height', svgHeight);
+
+  // Initialize the tooltip
+  tooltip = d3.select('#tooltip');
 }
+
+// Function to initialize and display the grid
+function initializeGrid() {
+  // Clear previous SVG content
+  svg.selectAll('*').remove();
+
+  // Define the base Hex class
+  const BaseHex = Honeycomb.defineHex({
+    dimensions: hexDimension
+  });
+
+  // Define the custom Hex class by extending the base class
+  Hex = class extends BaseHex {
+    constructor(...args) {
+      super(...args); // Call the base class constructor
+      // Initialize custom properties
+      this.speciesData = null;
+      this.environmentData = null;
+      this.cubeCoordinates = null;
+      this.isObstacle = false;
+    }
+
+    // Add methods to get and set the data
+    getSpeciesData() {
+      return this.speciesData;
+    }
+    setSpeciesData(data) {
+      this.speciesData = data;
+    }
+    getEnvironmentData() {
+      return this.environmentData;
+    }
+    setEnvironmentData(data) {
+      this.environmentData = data;
+    }
+    addSpecies(species) {
+      if (!this.speciesData) {
+        this.speciesData = [];
+      }
+      this.speciesData.push(species);
+      species.setHex(this);
+    }
+    removeSpecies(species) {
+      if (this.speciesData) {
+        this.speciesData = this.speciesData.filter(s => s !== species);
+      }
+    }
+    migrateSpecies(species, targetHex) {
+      this.removeSpecies(species);
+      targetHex.addSpecies(species);
+      species.setHex(targetHex);
+    }
+  };
+
+  // Define the species class with unique index and intrinsic species properties
+  Species = class {
+    constructor(index, parent = null, hex, timeBirth = 0, timeDeath = -1) {
+      this.index = index;
+      this.parent = parent;
+      this.hex = hex;
+      this.birthRate = intrinsicBirthRate;
+      this.mutationRate = intrinsicMutationRate;
+      this.deathRate = intrinsicDeathRate;
+      this.migrationRate = intrinsicMigrationRate;
+      this.active = true;
+      this.timeBirth = timeBirth;
+      this.timeDeath = timeDeath;
+    }
+
+    // Getters and setters of the rates and status (extinct or not)
+    getIndex() {
+      return this.index;
+    }
+    getParentIndex() {
+      return this.parent;
+    }
+    getHex() {
+      return this.hex;
+    }
+    setHex(hex) {
+      this.hex = hex;
+    }
+    getTimeBirth() {
+      return this.timeBirth;
+    }
+    getTimeDeath() {
+      return this.timeDeath;
+    }
+    getBirthRate() {
+      return this.birthRate;
+    }
+    setBirthRate(rate) {
+      this.birthRate = rate;
+    }
+    getMutationRate() {
+      return this.mutationRate;
+    }
+    setMutationRate(rate) {
+      this.mutationRate = rate;
+    }
+    getDeathRate() {
+      return this.deathRate;
+    }
+    setDeathRate(rate) {
+      this.deathRate = rate;
+    }
+    getMigrationRate() {
+      return this.migrationRate;
+    }
+    setMigrationRate(rate) {
+      this.migrationRate = rate;
+    }
+    isActive() {
+      return this.active;
+    }
+    setExtinct(time) {
+      this.active = false;
+      this.timeDeath = time;
+    }
+    setMigrate(hex) {
+      this.hex = hex;
+    }
+  };
+
+  // Set up the grid dimensions
+  grid = new Honeycomb.Grid(Hex, Honeycomb.spiral({ start: [0, 0], radius: gridRadius }));
+
+  // Initialize the hexagons
+  grid.forEach(hex => {
+    // Calculate cube coordinates for the hex
+    hex.cubeCoordinates = { q: hex.q, r: hex.r, s: hex.s };
+
+    hex.environmentData = {
+      betaN: globalBetaN,
+      betaPhi: globalBetaPhi,
+      gammaN: globalGammaN,
+      gammaPhi: globalGammaPhi,
+      deltaN: globalDeltaN,
+      deltaPhi: globalDeltaPhi
+    };
+
+    // Initially, no hexagons are obstacles
+    hex.isObstacle = false;
+  });
+
+  // Select initial hexagon
+  let hexZero = selectHexZero(methodHexZero);
+
+  // If the selected hexZero is an obstacle (unlikely here), select another one
+  while (hexZero.isObstacle) {
+    console.warn("Selected hexZero is an obstacle. Selecting another one.");
+    hexZero = selectHexZero(methodHexZero);
+  }
+
+  // Add obstacles to the grid
+  grid.forEach(hex => {
+    // Randomly set hexagons as obstacles, except for hexZero
+    if (hex !== hexZero && Math.random() < obstacleProbability) {
+      hex.isObstacle = true;
+    }
+  });
+
+  // Place the initial common ancestor in the selected hex-zero
+  if (hexZero) {
+    const initialSpecies = new Species(0, null, hexZero);
+    hexZero.addSpecies(initialSpecies);
+    speciesIndexArray.push(initialSpecies);
+  }
+
+  // Update rates for each hexagon in the grid
+  grid.forEach(hex => {
+    updateRates(hex);
+  });
+
+  // Display the grid
+  updateVisualization();
+}
+
+// Function to start or resume the simulation
+function startSimulation() {
+  if (simulationRunning && !simulationPaused) return; // Prevent multiple simulations from running
+
+  if (simulationPaused) {
+    // Resume simulation
+    simulationPaused = false;
+    runSimulation();
+    // Update buttons
+    document.getElementById('pauseButton').disabled = false;
+    document.getElementById('startButton').disabled = true;
+    return;
+  }
+
+  // Else, start new simulation
+  toggleSettings(true); // Disable settings inputs
+  simulationRunning = true;
+  simulationPaused = false;
+
+  // Start the simulation loop
+  runSimulation();
+}
+
+// Function to compute the number of non-extinct species within a hexagon
+countNonExtinctSpecies = function (hex) {
+  if (!hex.speciesData) {
+    return 0;
+  }
+  return hex.speciesData.filter(species => species.isActive()).length;
+};
+
+// Function to update the rates of species within a hexagon according to the number of species
+updateRates = function (hex) {
+  const nonExtinctCount = countNonExtinctSpecies(hex);
+  if (hex.speciesData) {
+    hex.speciesData.forEach(species => {
+      species.setBirthRate(intrinsicBirthRate + globalBetaN * nonExtinctCount);
+      species.setDeathRate(intrinsicDeathRate + globalGammaN * nonExtinctCount);
+      species.setMigrationRate(intrinsicMigrationRate + globalDeltaN * nonExtinctCount);
+    });
+  }
+};
 
 // Function to create a child species from a non-extinct (active) species
-function createChildSpecies(parentSpecies) {
+createChildSpecies = function (parentSpecies) {
   if (parentSpecies.isActive()) {
     const newIndex = speciesIndexArray.length;
     const childSpecies = new Species(newIndex, parentSpecies.index, parentSpecies.getHex());
@@ -157,38 +325,33 @@ function createChildSpecies(parentSpecies) {
     return childSpecies;
   }
   return null;
-}
+};
 
 // Function to set a species to extinct
-function setSpeciesExtinct(species, time) {
+setSpeciesExtinct = function (species, time) {
   species.setExtinct(time);
-}
-
-const customHex = new Hex();
-
-// Set up the grid dimensions
-const grid = new Honeycomb.Grid(Hex, Honeycomb.spiral({ start: [0,0], radius: gridRadius }))
+};
 
 // Define methods to select a hex-zero to place the common ancestor
-function getRandomBorderHex(grid) {
+getRandomBorderHex = function (grid) {
   const borderHexes = grid.filter(hex => {
     const { q, r, s } = hex.cubeCoordinates;
     return Math.abs(q) === gridRadius || Math.abs(r) === gridRadius || Math.abs(s) === gridRadius;
   });
   return borderHexes[Math.floor(Math.random() * borderHexes.length)];
-}
+};
 
-function getCenterHex(grid) {
+getCenterHex = function (grid) {
   return grid.getHex([0, 0]);
-}
+};
 
 // Method to completely randomly select a hexagon from the grid
-function getRandomHex(grid) {
+getRandomHex = function (grid) {
   return grid[Math.floor(Math.random() * grid.length)];
-}
+};
 
 // Hex-zero selector with above defined methods
-function selectHexZero(method) {
+selectHexZero = function (method) {
   switch (method) {
     case 'center':
       return getCenterHex(grid);
@@ -199,60 +362,10 @@ function selectHexZero(method) {
     default:
       return getCenterHex(grid);
   }
-}
-
-// Initialize the hexagons
-grid.forEach(hex => {
-  // Calculate cube coordinates for the hex
-  hex.cubeCoordinates = { q: hex.q, r: hex.r, s: hex.s };
-
-  hex.environmentData = {
-    betaN: globalBetaN,
-    betaPhi: globalBetaPhi,
-    gammaN: globalGammaN,
-    gammaPhi: globalGammaPhi,
-    deltaN: globalDeltaN,
-    deltaPhi: globalDeltaPhi
-  };
-});
-
-// Select initial hexagon
-const hexZero = selectHexZero(methodHexZero);
-
-// Place the initial common ancestor in the selected hex-zero
-if (hexZero) {
-  const initialSpecies = new Species(0, null, hexZero);
-  hexZero.addSpecies(initialSpecies);
-  speciesIndexArray.push(initialSpecies);
-}
-
-// Function to compute the number of non-extinct species within a hexagon
-function countNonExtinctSpecies(hex) {
-  if (!hex.speciesData) {
-    return 0;
-  }
-  return hex.speciesData.filter(species => species.isActive()).length;
-}
-
-// Function to update the rates of species within a hexagon according to the number of species
-function updateRates(hex) {
-  const nonExtinctCount = countNonExtinctSpecies(hex);
-  if (hex.speciesData) {
-    hex.speciesData.forEach(species => {
-      species.setBirthRate(intrinsicBirthRate + globalBetaN * nonExtinctCount);
-      species.setDeathRate(intrinsicDeathRate + globalGammaN * nonExtinctCount);
-      species.setMigrationRate(intrinsicMigrationRate + globalDeltaN * nonExtinctCount);
-    });
-  }
-}
-
-// Update rates for each hexagon in the grid
-grid.forEach(hex => {
-  updateRates(hex);
-});
+};
 
 // Function to simulate events based on Gillespie's algorithm
-function simulateNextEvent() {
+simulateNextEvent = function () {
   // Create a list of all events with their rates
   const events = [];
 
@@ -310,12 +423,12 @@ function simulateNextEvent() {
     }
   }
   return null;
-}
+};
 
 // Function to get the neighbors of a hexagon
-function getHexNeighbors(hex, grid) {
-  neighbors = [];
-  const { q, r, s } = hex.cubeCoordinates;
+getHexNeighbors = function (hex, grid) {
+  let neighbors = [];
+  const { q, r } = hex.cubeCoordinates;
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.E));
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.N));
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.NE));
@@ -324,47 +437,46 @@ function getHexNeighbors(hex, grid) {
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.SE));
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.SW));
   neighbors.push(grid.neighborOf([q, r], Honeycomb.Direction.W));
-  
-  return neighbors.filter(neighbor => neighbor !== null);
-}
+
+  return neighbors.filter(neighbor => neighbor !== undefined && neighbor !== null);
+};
 
 // Function to execute the selected event
-function executeEvent(event) {
-    const { type, species, hex } = event;
-    switch (type) {
-      case 'birth':
-        createChildSpecies(species);
+executeEvent = function (event) {
+  const { type, species, hex } = event;
+  switch (type) {
+    case 'birth':
+      createChildSpecies(species);
+      updateRates(hex);
+      break;
+    case 'death':
+      setSpeciesExtinct(species, currentTime);
+      updateRates(hex);
+      break;
+    case 'migration':
+      const neighbors = getHexNeighbors(hex, grid).filter(neighbor => !neighbor.isObstacle);
+      if (neighbors.length > 0) {
+        const targetHex = neighbors[Math.floor(Math.random() * neighbors.length)];
+        hex.migrateSpecies(species, targetHex);
         updateRates(hex);
-        break;
-      case 'death':
-        setSpeciesExtinct(species, currentTime);
-        updateRates(hex);
-        break;
-      case 'migration':
-        const neighbors = getHexNeighbors(hex, grid);
-        if (neighbors.length > 0) {
-          const targetHex = neighbors[Math.floor(Math.random() * neighbors.length)];
-          hex.migrateSpecies(species, targetHex);
-          updateRates(hex);
-          updateRates(targetHex);
-        }
-        break;
-    }
-}
-
-// Compute the maximum non-extinct species count for color scaling
-function computeMaxCount() {
-  const counts = grid.map(hex => countNonExtinctSpecies(hex));
-  return d3.max(counts) || 1;
-}
-
-let maxCount = computeMaxCount();
+        updateRates(targetHex);
+      }
+      break;
+  }
+};
 
 // Function to get color based on non-extinct species count
-function getColor(count, scaleType = 'viridis') {
-  // If count is 0, return dark grey
+getColor = function (hex, scaleType = 'YlGnBu') {
+  // If the hexagon is an obstacle, return specific color
+  if (hex.isObstacle) {
+    return '#c2a3a3'; // Color for obstacles
+  }
+
+  const count = countNonExtinctSpecies(hex);
+
+  // If count is 0, return light grey
   if (count === 0) {
-    return '#a5a5a5';  // Dark grey color
+    return '#f4f4f1'; // Light grey color
   }
 
   // Define the color scale based on scaleType
@@ -388,60 +500,28 @@ function getColor(count, scaleType = 'viridis') {
     case 'custom-blue-red':
       colorScale = d3.scaleLinear().range(["blue", "red"]); // Custom Blue to Red
       break;
+    case 'YlGnBu':
+      colorScale = d3.scaleSequential(d3.interpolateYlGnBu); // Yellow to Green to Blue
+      break;
     default:
       colorScale = d3.scaleSequential(d3.interpolateViridis); // Default Viridis scale
   }
 
   // Apply the color scale for non-zero values
-  return colorScale.domain([0, maxCount])(count);
-}
+  return colorScale.domain([0, 20])(count);
+};
 
-// Set up the SVG canvas dimensions
-const svgWidth = 1400;
-const svgHeight = 1400;
-const gapScale = 0;
-const svg = d3.select('#svgCanvas')
-  .attr('width', svgWidth)
-  .attr('height', svgHeight);
+let currentHoveredHex = null;
+let tooltipUpdateInterval = null;
 
-function renderHexagons(hex) {
-  // Compute the pixel coordinates of the hex's position
-  const point = Honeycomb.hexToPoint(hex);
-  const x = point.x * gapScale + svgWidth / 2;  // Center the grid in the SVG canvas
-  const y = point.y * gapScale + svgHeight / 2;
-
-  // Get the corners of the hexagon
-  const corners = hex.corners.map(corner => {
-    const xCorner = corner.x + x;
-    const yCorner = corner.y + y;
-    return [xCorner, yCorner];
-  });
-
-  // Convert corners to string for the 'points' attribute
-  const points = corners.map(point => point.join(',')).join(' ');
-
-  // Get the fill color based on the number of non-extinct species
-  const nonExtinctCount = countNonExtinctSpecies(hex);
-  const fillColor = getColor(nonExtinctCount);
-
-  // Append the hexagon to the SVG canvas
-  svg.append('polygon')
-      .attr('class', 'hexagon')
-      .attr('points', points)
-      .attr('fill', fillColor)
-      .attr('stroke', '#000')
-      .attr('stroke-width', 0.5);
-}
-
-function updateVisualization() {
-  maxCount = computeMaxCount(); // Recompute maxCount for color scaling
-
+// Function to update the visualization based on the grid data
+updateVisualization = function () {
   // Bind data
   const hexagons = svg.selectAll('.hexagon')
       .data(grid, hex => `${hex.q},${hex.r}`);
 
   // Enter selection (only executed once for new hexagons)
-  hexagons.enter()
+  const newHexagons = hexagons.enter()
       .append('polygon')
       .attr('class', 'hexagon')
       .attr('points', hex => {
@@ -454,31 +534,131 @@ function updateVisualization() {
         ]);
         return corners.map(point => point.join(',')).join(' ');
       })
-      .attr('fill', hex => getColor(countNonExtinctSpecies(hex)))
+      .attr('fill', hex => getColor(hex))
       .attr('stroke', '#000')
-      .attr('stroke-width', 0.5);
+      .attr('stroke-width', 0.5)
+      .style('opacity', 0) // Set initial opacity to 0 for enter transition
+      .on('mouseover', function (event, hex) {
+        // Show tooltip
+        currentHoveredHex = hex;
+        tooltip.style('opacity', 1);
 
-  // Update selection (update existing hexagons)
-  hexagons
-      .attr('fill', hex => getColor(countNonExtinctSpecies(hex)));
+        // Highlight hexagon by increasing stroke-width and changing stroke color
+        d3.select(this)
+            .attr('stroke', '#ff5f5f')  // Change stroke color to red
+            .attr('stroke-width', 2)    // Increase stroke width
+            .raise();                   // Bring hexagon to front
 
-  // Exit selection (if any hexagons are removed)
-  hexagons.exit().remove();
-}
+        // Start interval to update tooltip content
+        tooltipUpdateInterval = setInterval(() => {
+          updateTooltipContent(event, currentHoveredHex);
+        }, 100); // Update every 100ms
+      })
+      .on('mousemove', function (event, hex) {
+        // Update current hex and tooltip position
+        currentHoveredHex = hex;
+        updateTooltipContent(event, hex);
+      })
+      .on('mouseout', function () {
+        // Hide tooltip
+        tooltip.style('opacity', 0);
+        currentHoveredHex = null;
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+        // Reset hexagon appearance (remove highlighting)
+        d3.select(this)
+            .attr('stroke', '#000')     // Reset stroke color to black
+            .attr('stroke-width', 0.5); // Reset stroke width
 
+        // Clear the interval
+        clearInterval(tooltipUpdateInterval);
+        tooltipUpdateInterval = null;
+      });
+
+  // Apply enter transition (fade in and scale in)
+  newHexagons.transition()
+      .duration(500)           // Transition duration of 500ms
+      .style('opacity', 1)     // Fade in
+      .attr('transform', 'scale(1)'); // Scale in effect (no scale initially)
+
+  // Update selection (update existing hexagons) with transition for fill color
+  hexagons.transition()  // Apply transition for color update
+      .duration(100)     // Duration of 500ms
+      .attr('fill', hex => getColor(hex));  // Smooth transition of fill color
+
+  // Exit selection (hexagons being removed)
+  hexagons.exit()
+      .transition()      // Apply exit transition
+      .duration(500)     // Transition duration of 500ms
+      .style('opacity', 0)   // Fade out
+      .attr('transform', 'scale(0)')  // Scale down to 0
+      .remove();           // Remove the hexagon after the transition completes
+};
+
+// Function to update the tooltip content
+updateTooltipContent = function (event, hex) {
+  // Update tooltip content and position
+  const nonExtinctCount = countNonExtinctSpecies(hex);
+  const speciesIndices = hex.speciesData ? hex.speciesData.filter(s => s.isActive()).map(s => s.index) : [];
+  const environmentData = hex.environmentData;
+
+  // Get all non-extinct species
+  let speciesInfo = '';
+  const activeSpecies = hex.speciesData ? hex.speciesData.filter(s => s.isActive()) : [];
+  if (activeSpecies.length > 0) {
+    speciesInfo = activeSpecies.map(species => `
+                <strong>Species Index:</strong> ${species.index}<br/>
+                <strong>Birth Rate:</strong> ${species.getBirthRate().toFixed(3)}<br/>
+                <strong>Death Rate:</strong> ${species.getDeathRate().toFixed(3)}<br/>
+                <strong>Migration Rate:</strong> ${species.getMigrationRate().toFixed(3)}<br/>
+            `).join('<br/>');
+  } else {
+    speciesInfo = `<em>No active species in this hex.</em><br/>`;
+  }
+
+  // Environment data formatting
+  const environmentInfo = `
+            <strong>Environment Data:</strong><br/>
+            BetaN: ${environmentData.betaN}<br/>
+            BetaPhi: ${environmentData.betaPhi}<br/>
+            GammaN: ${environmentData.gammaN}<br/>
+            GammaPhi: ${environmentData.gammaPhi}<br/>
+            DeltaN: ${environmentData.deltaN}<br/>
+            DeltaPhi: ${environmentData.deltaPhi}<br/>
+        `;
+
+  // Check if the hex is an obstacle
+  let obstacleInfo = '';
+  if (hex.isObstacle) {
+    obstacleInfo = `<strong>Status:</strong> <span style="color:red;">Obstacle</span><br/>`;
+  } else {
+    obstacleInfo = `<strong>Status:</strong> <span style="color:#00cf00;">Accessible</span><br/>`;
+  }
+
+  const tooltipHtml = `
+            <strong>Hex Coordinates:</strong> (${hex.q}, ${hex.r})<br/>
+            ${obstacleInfo}
+            <strong>Non-extinct Species Count:</strong> ${nonExtinctCount}<br/>
+            ${speciesInfo}
+            ${environmentInfo}
+        `;
+
+  tooltip.html(tooltipHtml)
+      .style('left', (event.pageX + 10) + 'px') // Position tooltip to the right of the cursor
+      .style('top', (event.pageY + 10) + 'px'); // Position tooltip below the cursor
+};
+
+// Asynchronous simulation loop
 async function runSimulation() {
-  while (currentTime < simulationTime) {
-    console.log('Current time:', currentTime);
-    console.log('Species count:', speciesIndexArray.length);
+  // Disable start button after simulation starts or resumes
+  document.getElementById('startButton').disabled = true;
+  // Enable pause button
+  document.getElementById('pauseButton').disabled = false;
 
+  while (currentTime < simulationTime && !simulationPaused) {
     const event = simulateNextEvent();
-    console.log('Event:', event);
     if (!event) {
       console.log('No more events to process.');
+      simulationRunning = false;
       break;
     }
 
@@ -487,12 +667,81 @@ async function runSimulation() {
     // Update visualization
     updateVisualization();
 
-    // Wait for 100ms
+    // Wait for 200ms
     await sleep(200);
+
+    if (simulationPaused) {
+      break;
+    }
+    
+    if (!simulationRunning) {
+      return;
+    }
   }
 
-  console.log('Simulation completed.');
+  if (currentTime >= simulationTime) {
+    console.log('Simulation completed.');
+    simulationRunning = false;
+    // Re-enable settings inputs and start button after simulation completes
+    toggleSettings(false);
+    document.getElementById('startButton').disabled = false;
+    // Disable pause button
+    document.getElementById('pauseButton').disabled = true;
+  }
 }
 
-// Start the simulation
-runSimulation();
+// Sleep function
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Function to pause the simulation
+function pauseSimulation() {
+  if (!simulationRunning || simulationPaused) return;
+
+  // Pause simulation
+  simulationPaused = true;
+
+  // Disable pause button
+  document.getElementById('pauseButton').disabled = true;
+
+  // Enable start button
+  document.getElementById('startButton').disabled = false;
+}
+
+// Function to reset the simulation
+function resetSimulation() {
+  // Pause the simulation
+  simulationPaused = false;
+  simulationRunning = false;
+
+  // Re-enable settings inputs
+  toggleSettings(false);
+
+  // Reset buttons
+  document.getElementById('startButton').disabled = false;
+  document.getElementById('pauseButton').disabled = true;
+
+  // Reinitialize simulation parameters and grid
+  initializeSimulation();
+  initializeGrid();
+}
+
+// Event listeners for Start, Pause, and Reset buttons
+document.getElementById('startButton').addEventListener('click', startSimulation);
+document.getElementById('pauseButton').addEventListener('click', pauseSimulation);
+document.getElementById('resetButton').addEventListener('click', resetSimulation);
+
+// On page load, initialize simulation parameters and grid
+window.onload = function () {
+  initializeSimulation();
+  initializeGrid();
+};
+
+// On control panel change, update the simulation parameters
+document.getElementById('controlPanel').addEventListener('change', function () {
+  if (!simulationRunning) {
+    initializeSimulation();
+    initializeGrid();
+  }
+});
