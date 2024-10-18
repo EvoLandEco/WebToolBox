@@ -31,8 +31,8 @@ let svg;
 let tooltip;
 
 // Set up the SVG canvas dimensions
-const svgWidth = 1200;
-const svgHeight = 1200;
+let svgWidth = 0;
+let svgHeight = 0;
 const gapScale = 0;
 
 // Variables for classes and functions
@@ -334,11 +334,31 @@ setSpeciesExtinct = function (species, time) {
 
 // Define methods to select a hex-zero to place the common ancestor
 getRandomBorderHex = function (grid) {
-  const borderHexes = grid.filter(hex => {
-    const { q, r, s } = hex.cubeCoordinates;
-    return Math.abs(q) === gridRadius || Math.abs(r) === gridRadius || Math.abs(s) === gridRadius;
-  });
-  return borderHexes[Math.floor(Math.random() * borderHexes.length)];
+  // Given current hexagonal layout, a border hexagon lies on the outer ring
+  // Thus we construct the coordinates manually:
+  const borderHexes = [];
+  for (let q = 0; q <= gridRadius; q++) {
+    borderHexes.push([q, -gridRadius]);
+  }
+  for (let q = -gridRadius; q <= 0; q++) {
+    borderHexes.push([q, gridRadius]);
+  }
+  for (let q = 0; q <= gridRadius; q++) {
+    borderHexes.push([q, (gridRadius - q)]);
+  }
+  for (let r = -gridRadius; r <= 0; r++) {
+    borderHexes.push([gridRadius, r]);
+  }
+  for (let r = 0; r <= gridRadius; r++) {
+    borderHexes.push([-gridRadius, r]);
+  }
+  for (let r = -gridRadius; r <= 0; r++) {
+    borderHexes.push([r, (-gridRadius - r)]);
+  }
+
+  sampledCoord = borderHexes[Math.floor(Math.random() * borderHexes.length)]
+
+  return grid.getHex(sampledCoord);
 };
 
 getCenterHex = function (grid) {
@@ -347,7 +367,14 @@ getCenterHex = function (grid) {
 
 // Method to completely randomly select a hexagon from the grid
 getRandomHex = function (grid) {
-  return grid[Math.floor(Math.random() * grid.length)];
+  // Traverse the grid in a spiral pattern and record the coordinates of each hexagon
+  const hexCoordinates = [];
+  grid.forEach(hex => {
+    hexCoordinates.push([hex.q, hex.r]);
+  });
+
+  // Randomly select a hexagon from the grid
+  return grid.getHex(hexCoordinates[Math.floor(Math.random() * hexCoordinates.length)]);
 };
 
 // Hex-zero selector with above defined methods
@@ -732,8 +759,27 @@ document.getElementById('startButton').addEventListener('click', startSimulation
 document.getElementById('pauseButton').addEventListener('click', pauseSimulation);
 document.getElementById('resetButton').addEventListener('click', resetSimulation);
 
+// Function to get svgCanvas smaller dimension
+function getSvgCanvasMinDimension() {
+  const svgCanvas = document.getElementById('svgCanvas');
+  const rect = svgCanvas.getBoundingClientRect();  // Use getBoundingClientRect to get the actual dimensions
+  // Return the smaller dimension
+  return Math.min(rect.width, rect.height);
+}
+
+// Function to set svgWidth and svgHeight to the smaller dimension
+function setSvgCanvasMinDimension() {
+  const minDimension = getSvgCanvasMinDimension();
+  svgWidth = minDimension;
+  svgHeight = minDimension;
+
+  console.log(`SVG Width: ${svgWidth}, SVG Height: ${svgHeight}`);
+}
+
 // On page load, initialize simulation parameters and grid
 window.onload = function () {
+  // Set svgWidth and svgHeight to the smaller dimension
+  setSvgCanvasMinDimension();
   initializeSimulation();
   initializeGrid();
 };
@@ -741,6 +787,8 @@ window.onload = function () {
 // On control panel change, update the simulation parameters
 document.getElementById('controlPanel').addEventListener('change', function () {
   if (!simulationRunning) {
+    // Set svgWidth and svgHeight to the smaller dimension
+    setSvgCanvasMinDimension();
     initializeSimulation();
     initializeGrid();
   }
